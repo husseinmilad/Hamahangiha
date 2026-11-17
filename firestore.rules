@@ -1,0 +1,414 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 4.1: Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string;
+    }
+
+    function authEmailLower() {
+      return request.auth.token.email.lower();
+    }
+
+    function isWorkspaceMember(workspaceId) {
+      return exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    function getMemberRole(workspaceId) {
+      return get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)).data.role;
+    }
+
+    function isWorkspaceAdmin(workspaceId) {
+      return isWorkspaceMember(workspaceId) && getMemberRole(workspaceId) in ['owner', 'executive', 'coordinator'];
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'photoURL', 'defaultTitle', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'defaultTitle', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.defaultTitle is string && data.defaultTitle.size() <= 80
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserMembership(data) {
+      return data.keys().hasAll(['workspaceId', 'workspaceName', 'role', 'ownerUid', 'joinedAt'])
+        && data.keys().hasOnly(['workspaceId', 'workspaceName', 'role', 'ownerUid', 'joinedAt'])
+        && isValidId(data.workspaceId)
+        && data.workspaceName is string && data.workspaceName.size() >= 1 && data.workspaceName.size() <= 100
+        && data.role in ['owner', 'executive', 'coordinator', 'member']
+        && isValidId(data.ownerUid)
+        && data.joinedAt is timestamp;
+    }
+
+    function isValidUserNotification(data) {
+      return data.keys().hasAll(['id', 'workspaceId', 'workspaceName', 'itemId', 'itemType', 'title', 'body', 'senderUid', 'senderName', 'senderEmail', 'read', 'actionStatus', 'createdAt'])
+        && data.keys().hasOnly(['id', 'workspaceId', 'workspaceName', 'itemId', 'itemType', 'title', 'body', 'senderUid', 'senderName', 'senderEmail', 'read', 'actionStatus', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.workspaceName is string && data.workspaceName.size() >= 1 && data.workspaceName.size() <= 100
+        && isValidId(data.itemId)
+        && data.itemType in ['meeting', 'task', 'event', 'invite', 'system']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.body is string && data.body.size() <= 500
+        && isValidId(data.senderUid)
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 100
+        && data.senderEmail is string && data.senderEmail.size() >= 3 && data.senderEmail.size() <= 200
+        && data.read is bool
+        && data.actionStatus in ['none', 'pending', 'confirmed', 'declined', 'done']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidWorkspace(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'description', 'ownerUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.description is string && data.description.size() <= 300
+        && isValidId(data.ownerUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWorkspaceMember(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'photoURL', 'role', 'inviteId', 'joinedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'inviteId', 'joinedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.role in ['owner', 'executive', 'coordinator', 'member']
+        && isValidId(data.inviteId)
+        && data.joinedAt is timestamp;
+    }
+
+    function isValidWorkspaceItem(data) {
+      return data.keys().hasAll([
+          'id', 'workspaceId', 'type', 'title', 'description', 'jalaliDate', 'gregorianDate',
+          'startTime', 'endTime', 'location', 'meetingLink', 'priority', 'status',
+          'assigneeEmail', 'assigneeName', 'assigneeUid', 'agenda', 'minutes',
+          'checklist', 'confirmedUids', 'declinedUids', 'notifyMembers', 'reminderMinutes',
+          'createdByUid', 'createdByName', 'createdByEmail', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'workspaceId', 'type', 'title', 'description', 'jalaliDate', 'gregorianDate',
+          'startTime', 'endTime', 'location', 'meetingLink', 'priority', 'status',
+          'assigneeEmail', 'assigneeName', 'assigneeUid', 'agenda', 'minutes',
+          'checklist', 'confirmedUids', 'declinedUids', 'notifyMembers', 'reminderMinutes',
+          'createdByUid', 'createdByName', 'createdByEmail', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.type in ['meeting', 'task', 'event']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.description is string && data.description.size() <= 2000
+        && data.jalaliDate is string && data.jalaliDate.size() == 10 && data.jalaliDate.matches('^\\d{4}/\\d{2}/\\d{2}$')
+        && data.gregorianDate is string && data.gregorianDate.size() == 10 && data.gregorianDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.startTime is string && data.startTime.size() <= 5
+        && data.endTime is string && data.endTime.size() <= 5
+        && data.location is string && data.location.size() <= 200
+        && data.meetingLink is string && data.meetingLink.size() <= 400
+        && data.priority in ['urgent', 'high', 'normal', 'low']
+        && data.status in ['scheduled', 'in_progress', 'completed', 'cancelled']
+        && data.assigneeEmail is string && data.assigneeEmail.size() <= 200
+        && data.assigneeName is string && data.assigneeName.size() <= 100
+        && data.assigneeUid is string && data.assigneeUid.size() <= 128
+        && data.agenda is string && data.agenda.size() <= 2000
+        && data.minutes is string && data.minutes.size() <= 3000
+        && data.checklist is list && data.checklist.size() <= 20
+        && (data.checklist.size() == 0 || (
+          data.checklist[0] is map
+          && data.checklist[0].keys().hasOnly(['id', 'text', 'done'])
+          && data.checklist[0].id is string
+          && data.checklist[0].text is string
+          && data.checklist[0].text.size() <= 200
+          && data.checklist[0].done is bool
+        ))
+        && data.confirmedUids is list && data.confirmedUids.size() <= 25
+        && (data.confirmedUids.size() == 0 || data.confirmedUids[0] is string)
+        && data.declinedUids is list && data.declinedUids.size() <= 25
+        && (data.declinedUids.size() == 0 || data.declinedUids[0] is string)
+        && data.notifyMembers is bool
+        && data.reminderMinutes is number && data.reminderMinutes >= 0 && data.reminderMinutes <= 1440
+        && isValidId(data.createdByUid)
+        && data.createdByName is string && data.createdByName.size() >= 1 && data.createdByName.size() <= 100
+        && data.createdByEmail is string && data.createdByEmail.size() >= 3 && data.createdByEmail.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWorkspaceInvite(data) {
+      return data.keys().hasAll([
+          'id', 'workspaceId', 'workspaceName', 'invitedEmail', 'invitedByUid',
+          'invitedByName', 'invitedByEmail', 'role', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'workspaceId', 'workspaceName', 'invitedEmail', 'invitedByUid',
+          'invitedByName', 'invitedByEmail', 'role', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.workspaceName is string && data.workspaceName.size() >= 1 && data.workspaceName.size() <= 100
+        && data.invitedEmail is string && data.invitedEmail.size() >= 5 && data.invitedEmail.size() <= 200
+        && isValidId(data.invitedByUid)
+        && data.invitedByName is string && data.invitedByName.size() >= 1 && data.invitedByName.size() <= 100
+        && data.invitedByEmail is string && data.invitedByEmail.size() >= 3 && data.invitedByEmail.size() <= 200
+        && data.role in ['executive', 'coordinator', 'member']
+        && data.status in ['pending', 'accepted', 'declined']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 1. User Profile (PII isolated to owner)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isVerified() && isValidId(userId) && request.auth.uid == userId;
+      allow create: if isSignedIn() && isVerified() && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isVerified() && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'defaultTitle', 'updatedAt']);
+
+      // 2. User Memberships
+      match /memberships/{workspaceId} {
+        allow get: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(workspaceId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && isVerified() && request.auth.uid == userId;
+        allow create: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(workspaceId)
+          && request.auth.uid == userId
+          && isValidUserMembership(incoming())
+          && incoming().workspaceId == workspaceId
+          && incoming().joinedAt == request.time
+          && existsAfter(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId));
+        allow update: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(workspaceId)
+          && request.auth.uid == userId
+          && isValidUserMembership(incoming())
+          && incoming().workspaceId == existing().workspaceId
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().joinedAt == existing().joinedAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['workspaceName', 'role']);
+        allow delete: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(workspaceId) && request.auth.uid == userId;
+      }
+
+      // 3. User Notifications
+      match /notifications/{notificationId} {
+        allow get: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(notificationId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && isVerified() && request.auth.uid == userId;
+        allow create: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(notificationId)
+          && isValidUserNotification(incoming())
+          && incoming().id == notificationId
+          && incoming().senderUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && (
+            userId == request.auth.uid
+            || (
+              isWorkspaceMember(incoming().workspaceId)
+              && exists(/databases/$(database)/documents/workspaces/$(incoming().workspaceId)/members/$(userId))
+            )
+          );
+        allow update: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(notificationId)
+          && request.auth.uid == userId
+          && isValidUserNotification(incoming())
+          && incoming().id == existing().id
+          && incoming().workspaceId == existing().workspaceId
+          && incoming().senderUid == existing().senderUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['read', 'actionStatus']);
+        allow delete: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(notificationId) && request.auth.uid == userId;
+      }
+    }
+
+    // 4. Workspaces
+    match /workspaces/{workspaceId} {
+      allow get: if isSignedIn() && isVerified() && isValidId(workspaceId) && isWorkspaceMember(workspaceId);
+      allow list: if isSignedIn() && isVerified() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isSignedIn() && isVerified() && isValidId(workspaceId)
+        && isValidWorkspace(incoming())
+        && incoming().id == workspaceId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+      allow update: if isSignedIn() && isVerified() && isValidId(workspaceId)
+        && isValidWorkspace(incoming())
+        && isWorkspaceAdmin(workspaceId)
+        && incoming().id == existing().id
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'updatedAt']);
+      allow delete: if isSignedIn() && isVerified() && isValidId(workspaceId) && existing().ownerUid == request.auth.uid;
+
+      // 5. Workspace Members
+      match /members/{memberUid} {
+        allow get: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(memberUid) && isWorkspaceMember(workspaceId);
+        allow list: if isSignedIn() && isVerified() && exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+        allow create: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(memberUid)
+          && isValidWorkspaceMember(incoming())
+          && incoming().uid == memberUid
+          && memberUid == request.auth.uid
+          && incoming().joinedAt == request.time
+          && (
+            (
+              incoming().role == 'owner'
+              && incoming().inviteId == 'creator'
+              && existsAfter(/databases/$(database)/documents/workspaces/$(workspaceId))
+              && getAfter(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerUid == request.auth.uid
+            )
+            || (
+              incoming().inviteId != 'creator'
+              && exists(/databases/$(database)/documents/workspaceInvites/$(incoming().inviteId))
+              && get(/databases/$(database)/documents/workspaceInvites/$(incoming().inviteId)).data.workspaceId == workspaceId
+              && get(/databases/$(database)/documents/workspaceInvites/$(incoming().inviteId)).data.invitedEmail == authEmailLower()
+              && get(/databases/$(database)/documents/workspaceInvites/$(incoming().inviteId)).data.status == 'pending'
+              && incoming().role == get(/databases/$(database)/documents/workspaceInvites/$(incoming().inviteId)).data.role
+            )
+          );
+        allow update: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(memberUid)
+          && isValidWorkspaceMember(incoming())
+          && incoming().uid == existing().uid
+          && incoming().email == existing().email
+          && incoming().inviteId == existing().inviteId
+          && incoming().joinedAt == existing().joinedAt
+          && (
+            (
+              memberUid == request.auth.uid
+              && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL'])
+            )
+            || (
+              isWorkspaceAdmin(workspaceId)
+              && existing().role != 'owner'
+              && incoming().role in ['executive', 'coordinator', 'member']
+              && incoming().diff(existing()).affectedKeys().hasOnly(['role'])
+            )
+          );
+        allow delete: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(memberUid)
+          && (
+            memberUid == request.auth.uid
+            || (
+              get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerUid == request.auth.uid
+              && existing().role != 'owner'
+            )
+          );
+      }
+
+      // 6. Workspace Items (Meetings, Tasks, Events)
+      match /items/{itemId} {
+        allow get: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(itemId) && isWorkspaceMember(workspaceId);
+        allow list: if isSignedIn() && isVerified() && exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+        allow create: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(itemId)
+          && isValidWorkspaceItem(incoming())
+          && incoming().id == itemId
+          && incoming().workspaceId == workspaceId
+          && incoming().createdByUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && isWorkspaceMember(workspaceId);
+        allow update: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(itemId)
+          && isValidWorkspaceItem(incoming())
+          && isWorkspaceMember(workspaceId)
+          && incoming().id == existing().id
+          && incoming().workspaceId == existing().workspaceId
+          && incoming().createdByUid == existing().createdByUid
+          && incoming().createdByEmail == existing().createdByEmail
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            (
+              existing().status != 'cancelled'
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'type', 'title', 'description', 'jalaliDate', 'gregorianDate',
+                'startTime', 'endTime', 'location', 'meetingLink', 'priority', 'status',
+                'assigneeEmail', 'assigneeName', 'assigneeUid', 'agenda', 'minutes',
+                'checklist', 'confirmedUids', 'declinedUids', 'notifyMembers', 'reminderMinutes', 'updatedAt'
+              ])
+            )
+            || (
+              isWorkspaceAdmin(workspaceId)
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'minutes', 'updatedAt'])
+            )
+            || (
+              existing().status != 'cancelled'
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'checklist', 'confirmedUids', 'declinedUids', 'minutes', 'updatedAt'])
+            )
+          );
+        allow delete: if isSignedIn() && isVerified() && isValidId(workspaceId) && isValidId(itemId)
+          && (existing().createdByUid == request.auth.uid || isWorkspaceAdmin(workspaceId));
+      }
+    }
+
+    // 7. Workspace Invites (Gmail-based linking)
+    match /workspaceInvites/{inviteId} {
+      allow get: if isSignedIn() && isVerified() && isValidId(inviteId)
+        && (existing().invitedEmail == authEmailLower() || existing().invitedByUid == request.auth.uid);
+      allow list: if isSignedIn() && isVerified()
+        && (resource.data.invitedEmail == authEmailLower() || resource.data.invitedByUid == request.auth.uid);
+      allow create: if isSignedIn() && isVerified() && isValidId(inviteId)
+        && isValidWorkspaceInvite(incoming())
+        && incoming().id == inviteId
+        && incoming().invitedByUid == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isWorkspaceMember(incoming().workspaceId);
+      allow update: if isSignedIn() && isVerified() && isValidId(inviteId)
+        && isValidWorkspaceInvite(incoming())
+        && incoming().id == existing().id
+        && incoming().workspaceId == existing().workspaceId
+        && incoming().workspaceName == existing().workspaceName
+        && incoming().invitedEmail == existing().invitedEmail
+        && incoming().invitedByUid == existing().invitedByUid
+        && incoming().role == existing().role
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && existing().status == 'pending'
+        && (
+          (
+            existing().invitedEmail == authEmailLower()
+            && incoming().status in ['accepted', 'declined']
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+          || (
+            existing().invitedByUid == request.auth.uid
+            && incoming().status == 'declined'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+      allow delete: if isSignedIn() && isVerified() && isValidId(inviteId)
+        && (existing().invitedByUid == request.auth.uid || existing().invitedEmail == authEmailLower());
+    }
+  }
+}

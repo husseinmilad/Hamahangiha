@@ -1,17 +1,144 @@
-// Phase 0 Security Rules Verification Reference (Dirty Dozen Payloads)
-// Designed for @firebase/rules-unit-testing against firestore.rules
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+  type RulesTestEnvironment,
+} from '@firebase/rules-unit-testing';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 
-export const dirtyDozenPayloads = [
-  { name: 'Unauthenticated item read', path: 'workspaces/ws1/items/item1', expected: 'PERMISSION_DENIED' },
-  { name: 'Unverified email workspace create', path: 'workspaces/ws1', emailVerified: false, expected: 'PERMISSION_DENIED' },
-  { name: 'PII leak on users/{uid}', actor: 'userB', path: 'users/userA', expected: 'PERMISSION_DENIED' },
-  { name: 'Blanket list on workspaceInvites', actor: 'userC', path: 'workspaceInvites', expected: 'PERMISSION_DENIED' },
-  { name: 'Shadow field isAdmin on item', payload: { isAdmin: true }, expected: 'PERMISSION_DENIED' },
-  { name: 'Identity spoofing createdByUid', payload: { createdByUid: 'userB' }, expected: 'PERMISSION_DENIED' },
-  { name: 'Self-join workspace without invite', path: 'workspaces/ws1/members/userC', expected: 'PERMISSION_DENIED' },
-  { name: 'Cross-workspace notification spam', path: 'users/userA/notifications/n1', expected: 'PERMISSION_DENIED' },
-  { name: 'Path ID poisoning (>128 chars)', path: `workspaces/${'a'.repeat(200)}`, expected: 'PERMISSION_DENIED' },
-  { name: 'Temporal forgery createdAt != request.time', payload: { createdAt: '2020-01-01T00:00:00Z' }, expected: 'PERMISSION_DENIED' },
-  { name: 'Immutable createdByUid mutation on update', payload: { createdByUid: 'userB' }, expected: 'PERMISSION_DENIED' },
-  { name: 'Array exhaustion checklist > 20', payload: { checklist: new Array(25).fill({ id: '1', text: 'x', done: false }) }, expected: 'PERMISSION_DENIED' }
-];
+let testEnv: RulesTestEnvironment;
+
+const owner = { uid: 'userA', email: 'owner@example.com', email_verified: true };
+const member = { uid: 'userB', email: 'member@example.com', email_verified: true };
+const outsider = { uid: 'userC', email: 'outsider@example.com', email_verified: true };
+
+async function seedWorkspace() {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'workspaces/ws1'), {
+      id: 'ws1', name: 'گروه آزمایشی', description: '', ownerUid: owner.uid,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    for (const [uid, email, role] of [
+      [owner.uid, owner.email, 'owner'],
+      [member.uid, member.email, 'member'],
+    ]) {
+      await setDoc(doc(db, 'workspaces/ws1/members', uid), {
+        uid, email, displayName: uid, photoURL: '', role, inviteId: 'creator', joinedAt: new Date(),
+      });
+      await setDoc(doc(db, 'users', uid, 'memberships', 'ws1'), {
+        workspaceId: 'ws1', workspaceName: 'گروه آزمایشی', role,
+        ownerUid: owner.uid, joinedAt: new Date(),
+      });
+    }
+  });
+}
+
+function notificationPayload(senderUid: string, senderEmail: string) {
+  return {
+    id: 'notice1',
+    workspaceId: 'ws1',
+    workspaceName: 'گروه آزمایشی',
+    itemId: 'item1',
+    itemType: 'meeting',
+    title: 'جلسه آزمایشی',
+    body: 'اعلان آزمایشی',
+    senderUid,
+    senderName: senderUid,
+    senderEmail,
+    read: false,
+    actionStatus: 'none',
+    createdAt: serverTimestamp(),
+  };
+}
+
+beforeAll(async () => {
+  testEnv = await initializeTestEnvironment({
+    projectId: 'hamahangi-rules-test',
+    firestore: { rules: readFileSync('firestore.rules', 'utf8') },
+  });
+});
+
+beforeEach(async () => {
+  await testEnv.clearFirestore();
+  await seedWorkspace();
+});
+
+afterAll(async () => {
+  await testEnv.cleanup();
+});
+
+describe('Firestore security rules', () => {
+  it('allows a verified user to register their own FCM token', async () => {
+    const db = testEnv.authenticatedContext(owner.uid, {
+      email: owner.email, email_verified: true,
+    }).firestore();
+    await assertSucceeds(setDoc(doc(db, 'users/userA/fcmTokens/device1'), {
+      token: 'fcm-token-example', platform: 'android', updatedAt: serverTimestamp(),
+    }));
+  });
+
+  it('prevents a user from registering a token under another account', async () => {
+    const db = testEnv.authenticatedContext(owner.uid, {
+      email: owner.email, email_verified: true,
+    }).firestore();
+    await assertFails(setDoc(doc(db, 'users/userB/fcmTokens/device1'), {
+      token: 'stolen-token', platform: 'android', updatedAt: serverTimestamp(),
+    }));
+  });
+
+  it('keeps device tokens private to the account owner', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/userA/fcmTokens/device1'), {
+        token: 'private-token', platform: 'web', updatedAt: new Date(),
+      });
+    });
+    const db = testEnv.authenticatedContext(member.uid, {
+      email: member.email, email_verified: true,
+    }).firestore();
+    await assertFails(getDoc(doc(db, 'users/userA/fcmTokens/device1')));
+  });
+
+  it('allows a verified workspace member to notify another member', async () => {
+    const db = testEnv.authenticatedContext(owner.uid, {
+      email: owner.email, email_verified: true,
+    }).firestore();
+    await assertSucceeds(setDoc(
+      doc(collection(db, 'users/userB/notifications'), 'notice1'),
+      notificationPayload(owner.uid, owner.email),
+    ));
+  });
+
+  it('blocks notification spam from a non-member', async () => {
+    const db = testEnv.authenticatedContext(outsider.uid, {
+      email: outsider.email, email_verified: true,
+    }).firestore();
+    await assertFails(setDoc(
+      doc(collection(db, 'users/userB/notifications'), 'notice1'),
+      notificationPayload(outsider.uid, outsider.email),
+    ));
+  });
+
+  it('allows a workspace owner to remove a non-owner membership', async () => {
+    const db = testEnv.authenticatedContext(owner.uid, {
+      email: owner.email, email_verified: true,
+    }).firestore();
+    await assertSucceeds(deleteDoc(doc(db, 'users/userB/memberships/ws1')));
+  });
+
+  it('prevents an administrator from deleting the owner membership', async () => {
+    const db = testEnv.authenticatedContext(owner.uid, {
+      email: owner.email, email_verified: true,
+    }).firestore();
+    await assertFails(deleteDoc(doc(db, 'users/userA/memberships/ws1')));
+  });
+});

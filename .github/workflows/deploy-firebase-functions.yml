@@ -6,6 +6,7 @@ on:
     paths:
       - 'functions/**'
       - 'firebase.json'
+      - 'firestore.rules'
       - '.firebaserc'
       - '.github/workflows/deploy-firebase-functions.yml'
   workflow_dispatch:

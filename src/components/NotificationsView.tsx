@@ -113,7 +113,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onOpenItem
             </h2>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            اپلیکیشن هماهنگی را روی صفحه اصلی گوشی اندروید نصب کنید تا تمام‌صفحه و سریع اجرا شود.
+            نسخه مستقل اندروید با APK نصب می‌شود؛ نسخه وب نیز از طریق مرورگر قابل افزودن به صفحه اصلی است.
           </p>
           <PWAInstallButton variant="full" />
         </div>

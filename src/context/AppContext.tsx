@@ -104,6 +104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const seenNotifIdsRef = useRef<Set<string>>(new Set());
   const isInitialNotifBatchRef = useRef(true);
   const firedReminderKeysRef = useRef<Set<string>>(new Set());
+  const reminderItemsByWorkspaceRef = useRef<Map<string, WorkspaceItem[]>>(new Map());
 
   // Sync theme to document.documentElement
   useEffect(() => {
@@ -287,6 +288,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [authReady, user]);
 
+  // Keep native reminder schedules in sync across every workspace, not only the selected one.
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    reminderItemsByWorkspaceRef.current.clear();
+    if (!user || memberships.length === 0) {
+      void scheduleNativeReminders([]);
+      return;
+    }
+    const unsubscribers = memberships.map((membership) =>
+      onSnapshot(
+        collection(db, 'workspaces', membership.workspaceId, 'items'),
+        (snapshot) => {
+          reminderItemsByWorkspaceRef.current.set(
+            membership.workspaceId,
+            snapshot.docs.map((itemDoc) => itemDoc.data() as WorkspaceItem)
+          );
+          const allItems = Array.from(reminderItemsByWorkspaceRef.current.values()).flat();
+          void scheduleNativeReminders(allItems);
+        },
+        (error) => console.error('Native reminder sync failed', membership.workspaceId, error)
+      )
+    );
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      reminderItemsByWorkspaceRef.current.clear();
+    };
+  }, [user, memberships]);
+
   // Active workspace, members, and items listeners
   useEffect(() => {
     if (!authReady || !user || !activeWorkspaceId) {
@@ -349,10 +378,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Background meeting reminder checker (every 45s)
   useEffect(() => {
-    if (isNativePlatform()) {
-      void scheduleNativeReminders(user ? items : []);
-      return;
-    }
+    if (isNativePlatform()) return;
     if (!user || items.length === 0) return;
 
     const checkReminders = () => {

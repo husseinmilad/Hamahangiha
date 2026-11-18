@@ -11,6 +11,18 @@ export type NotificationPermissionState = 'default' | 'granted' | 'denied' | 'un
 
 export const isNativePlatform = (): boolean => Capacitor.isNativePlatform();
 
+export async function refreshNotificationPermission(): Promise<NotificationPermissionState> {
+  if (isNativePlatform()) {
+    try {
+      const permission = await LocalNotifications.checkPermissions();
+      return permission.display === 'granted' ? 'granted' : permission.display === 'denied' ? 'denied' : 'default';
+    } catch {
+      return 'unsupported';
+    }
+  }
+  return getNotificationPermission();
+}
+
 export function getNotificationPermission(): NotificationPermissionState {
   if (isNativePlatform()) return 'default';
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
@@ -85,16 +97,18 @@ export async function setupDevicePush(userId: string): Promise<() => void> {
         }],
       }).catch((error) => console.error('Foreground push display failed', error));
     }));
-    const permission = await PushNotifications.checkPermissions();
-    if (permission.receive === 'granted') {
-      await PushNotifications.register();
+    try {
+      const permission = await PushNotifications.checkPermissions();
+      if (permission.receive === 'granted') await PushNotifications.register();
+    } catch (error) {
+      console.warn('Native FCM is not configured or registration is unavailable', error);
     }
     return () => { listeners.forEach((listener) => void listener.remove()); };
   }
 
   let unsubscribeMessage: (() => void) | undefined;
   try {
-    if (Notification.permission === 'granted' && await isSupported()) {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && await isSupported()) {
       const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
       if (vapidKey) {
         const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
@@ -111,11 +125,16 @@ export async function setupDevicePush(userId: string): Promise<() => void> {
 
 export async function enableRemotePush(userId: string): Promise<boolean> {
   if (isNativePlatform()) {
-    let permission = await PushNotifications.checkPermissions();
-    if (permission.receive !== 'granted') permission = await PushNotifications.requestPermissions();
-    if (permission.receive !== 'granted') return false;
-    await PushNotifications.register();
-    return true;
+    try {
+      let permission = await PushNotifications.checkPermissions();
+      if (permission.receive !== 'granted') permission = await PushNotifications.requestPermissions();
+      if (permission.receive !== 'granted') return false;
+      await PushNotifications.register();
+      return true;
+    } catch (error) {
+      console.error('Native FCM registration is unavailable', error);
+      return false;
+    }
   }
   if (typeof window === 'undefined' || !('Notification' in window)) return false;
   if (Notification.permission !== 'granted') return false;

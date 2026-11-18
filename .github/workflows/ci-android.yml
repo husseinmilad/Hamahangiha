@@ -116,7 +116,13 @@ jobs:
         if: always()
         run: |
           if [ -f "$HOME/.android/debug.keystore" ]; then
-            keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null | grep -E 'SHA1:|SHA-1:'
+            keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null | grep -E 'SHA1:|SHA-1:' || true
+          fi
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APKSIGNER="$(find "$SDK/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          if [ -f "$APK" ] && [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs "$APK" | grep -i 'SHA-1'
           fi
 
       - name: Upload debug APK

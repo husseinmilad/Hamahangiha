@@ -1,5 +1,6 @@
 import {
   deleteDoc,
+  writeBatch,
   doc,
   getDoc,
   serverTimestamp,
@@ -256,7 +257,10 @@ export async function updateMemberRole(
 export async function removeWorkspaceMember(workspaceId: string, memberUid: string): Promise<void> {
   const path = `workspaces/${workspaceId}/members/${memberUid}`;
   try {
-    await deleteDoc(doc(db, 'workspaces', workspaceId, 'members', memberUid));
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'workspaces', workspaceId, 'members', memberUid));
+    batch.delete(doc(db, 'users', memberUid, 'memberships', workspaceId));
+    await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

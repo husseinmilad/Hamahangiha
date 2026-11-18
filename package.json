@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --port 3000 --host 0.0.0.0",
     "build": "tsc && vite build",
-    "lint": "eslint .",
+    "lint": "eslint src",
     "preview": "vite preview --port 3000 --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "cap:add": "cap add android",

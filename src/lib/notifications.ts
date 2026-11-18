@@ -78,8 +78,9 @@ export async function unregisterDevicePush(userId: string): Promise<void> {
   if (!tokenId) return;
   try {
     await deleteDoc(doc(db, 'users', userId, 'fcmTokens', tokenId));
-  } finally {
     localStorage.removeItem(`hamahangi_fcm_token_${userId}`);
+  } catch (error) {
+    console.warn('Could not remove device token before sign-out', error);
   }
 }
 

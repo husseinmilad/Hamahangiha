@@ -19,7 +19,8 @@ let testEnv: RulesTestEnvironment;
 
 const owner = { uid: 'userA', email: 'owner@example.com', email_verified: true };
 const member = { uid: 'userB', email: 'member@example.com', email_verified: true };
-const outsider = { uid: 'userC', email: 'outsider@example.com', email_verified: true };
+const coordinator = { uid: 'userC', email: 'coordinator@example.com', email_verified: true };
+const outsider = { uid: 'userD', email: 'outsider@example.com', email_verified: true };
 
 async function seedWorkspace() {
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -31,6 +32,7 @@ async function seedWorkspace() {
     for (const [uid, email, role] of [
       [owner.uid, owner.email, 'owner'],
       [member.uid, member.email, 'member'],
+      [coordinator.uid, coordinator.email, 'coordinator'],
     ]) {
       await setDoc(doc(db, 'workspaces/ws1/members', uid), {
         uid, email, displayName: uid, photoURL: '', role, inviteId: 'creator', joinedAt: new Date(),
@@ -135,9 +137,9 @@ describe('Firestore security rules', () => {
     await assertSucceeds(deleteDoc(doc(db, 'users/userB/memberships/ws1')));
   });
 
-  it('prevents an administrator from deleting the owner membership', async () => {
-    const db = testEnv.authenticatedContext(owner.uid, {
-      email: owner.email, email_verified: true,
+  it('prevents another workspace administrator from deleting the owner membership', async () => {
+    const db = testEnv.authenticatedContext(coordinator.uid, {
+      email: coordinator.email, email_verified: true,
     }).firestore();
     await assertFails(deleteDoc(doc(db, 'users/userA/memberships/ws1')));
   });

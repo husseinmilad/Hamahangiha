@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "cap:add": "cap add android",
     "cap:sync": "cap sync android",
-    "cap:open": "cap open android"
+    "cap:open": "cap open android",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run firestore.rules.test.ts\""
   },
   "dependencies": {
     "firebase": "^11.10.0",
@@ -39,6 +40,9 @@
     "typescript-eslint": "^8.32.1",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^1.0.0",
-    "@capacitor/cli": "^7.4.3"
+    "@capacitor/cli": "^7.4.3",
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "vitest": "^3.2.4",
+    "firebase-tools": "^14.0.0"
   }
 }

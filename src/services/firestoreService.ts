@@ -1,6 +1,5 @@
 import {
   deleteDoc,
-  writeBatch,
   doc,
   getDoc,
   serverTimestamp,

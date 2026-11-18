@@ -1,0 +1,6 @@
+{
+  "appId": "ir.hamahangi.app",
+  "appName": "هماهنگی",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

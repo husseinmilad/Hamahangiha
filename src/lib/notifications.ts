@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core';
+import type { PluginListenerHandle } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { db } from './firebase';
@@ -75,7 +76,7 @@ export async function setupDevicePush(userId: string): Promise<() => void> {
       sound: 'default',
       vibration: true,
     });
-    const listeners = [];
+    const listeners: PluginListenerHandle[] = [];
     listeners.push(await PushNotifications.addListener('registration', ({ value }) => {
       void savePushToken(userId, value, Capacitor.getPlatform() === 'ios' ? 'ios' : 'android')
         .catch((error) => console.error('FCM token save failed', error));

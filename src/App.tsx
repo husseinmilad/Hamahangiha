@@ -198,6 +198,10 @@ const MainShell: React.FC = () => {
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
+
+            <p className="px-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              نسخه آزمایشی · ساخته‌شده توسط سید حسین موسوی
+            </p>
           </div>
         </div>
       </aside>
@@ -271,6 +275,18 @@ const MainShell: React.FC = () => {
               )}
             </>
           )}
+
+          <footer className="mt-10 pt-4 border-t border-slate-200/70 dark:border-slate-800/70 text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
+            <span>این نسخه از برنامه آزمایشی است و توسط سید حسین موسوی ساخته شده است.</span>
+            <a
+              href="https://ble.ir/gomnam74"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+            >
+              ارتباط با سازنده
+            </a>
+          </footer>
         </main>
       </div>
 

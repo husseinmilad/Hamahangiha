@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  CalendarOff,
   Check,
   CheckCircle2,
   Clock,
@@ -18,6 +19,7 @@ import {
   WorkspaceItem,
 } from '../types/hamahangi';
 import { formatJalaliPretty, toPersianDigits } from '../lib/jalali';
+import { getIranHoliday } from '../lib/iranHolidays';
 import { useApp } from '../context/AppContext';
 import {
   deleteWorkspaceItem,
@@ -48,6 +50,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   const isConfirmedByMe = (item.confirmedUids || []).includes(user.uid);
   const isDeclinedByMe = (item.declinedUids || []).includes(user.uid);
+  const holiday = getIranHoliday(item.jalaliDate);
 
   const handleSaveMinutes = async () => {
     setSavingMinutes(true);
@@ -123,12 +126,19 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               <span className="font-medium tabular-nums">
                 {formatJalaliPretty(item.jalaliDate)}
               </span>
-              {item.startTime && (
+              {item.startTime ? (
                 <span className="inline-flex items-center gap-1.5 tabular-nums">
                   <Clock className="w-4 h-4 text-slate-400" />
-                  {toPersianDigits(item.startTime)}
-                  {item.endTime ? ` تا ${toPersianDigits(item.endTime)}` : ''}
+                  {item.type === 'task'
+                    ? `مهلت تا ساعت ${toPersianDigits(item.startTime)}`
+                    : `${toPersianDigits(item.startTime)}${
+                        item.endTime ? ` تا ${toPersianDigits(item.endTime)}` : ''
+                      }`}
                 </span>
+              ) : (
+                item.type === 'event' && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">تمام‌روز</span>
+                )
               )}
               {item.location && (
                 <span className="inline-flex items-center gap-1.5">
@@ -137,6 +147,13 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 </span>
               )}
             </div>
+
+            {holiday && (
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                <CalendarOff className="w-3.5 h-3.5" />
+                <span>تعطیل رسمی ایران: {holiday.title}</span>
+              </div>
+            )}
           </div>
 
           {item.meetingLink && (
@@ -147,7 +164,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               className="inline-flex items-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 px-4 py-2.5 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60"
             >
               <ExternalLink className="w-4 h-4" />
-              ورود به لینک جلسه آنلاین
+              {item.type === 'event' ? 'مشاهده لینک اطلاعات یا ثبت‌نام رویداد' : 'ورود به لینک جلسه آنلاین'}
             </a>
           )}
 
@@ -173,35 +190,47 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               {item.status === 'completed' ? 'تکمیل شده (بازگشت)' : 'علامت تکمیل‌شده'}
             </button>
 
-            <button
-              onClick={() => respondToItemAttendance(activeWorkspace, members, user, item, 'accepted')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 min-h-[40px] transition-colors ${
-                isConfirmedByMe
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-blue-600 hover:text-white'
-              }`}
-            >
-              <Check className="w-4 h-4" />
-              {isConfirmedByMe ? 'حضور شما تأیید شد' : 'تأیید حضور / رؤیت'}
-            </button>
+            {item.type !== 'task' && (
+              <>
+                <button
+                  onClick={() =>
+                    respondToItemAttendance(activeWorkspace, members, user, item, 'accepted')
+                  }
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 min-h-[40px] transition-colors ${
+                    isConfirmedByMe
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-blue-600 hover:text-white'
+                  }`}
+                >
+                  <Check className="w-4 h-4" />
+                  {isConfirmedByMe ? 'حضور شما تأیید شد' : 'تأیید حضور / رؤیت'}
+                </button>
 
-            <button
-              onClick={() => respondToItemAttendance(activeWorkspace, members, user, item, 'declined')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-medium min-h-[40px] transition-colors ${
-                isDeclinedByMe
-                  ? 'bg-red-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-red-50 hover:text-red-700'
-              }`}
-            >
-              عدم امکان حضور
-            </button>
+                <button
+                  onClick={() =>
+                    respondToItemAttendance(activeWorkspace, members, user, item, 'declined')
+                  }
+                  className={`px-3.5 py-2 rounded-xl text-xs font-medium min-h-[40px] transition-colors ${
+                    isDeclinedByMe
+                      ? 'bg-red-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-red-50 hover:text-red-700'
+                  }`}
+                >
+                  عدم امکان حضور
+                </button>
+              </>
+            )}
           </div>
 
           {/* Agenda / Description */}
           {(item.agenda || item.description) && (
             <div className="space-y-1.5">
               <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                {item.type === 'meeting' ? 'دستور جلسه' : 'توضیحات'}
+                {item.type === 'meeting'
+                  ? 'دستور جلسه'
+                  : item.type === 'task'
+                  ? 'شرح کار'
+                  : 'برنامه و جزئیات رویداد'}
               </h3>
               <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
                 {item.agenda || item.description}
@@ -213,7 +242,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           {item.checklist.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                چک‌لیست پیگیری
+                {item.type === 'task' ? 'مراحل انجام کار' : 'چک‌لیست پیگیری'}
               </h3>
               <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                 {item.checklist.map((c) => (
@@ -247,54 +276,63 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             </div>
           )}
 
-          {/* Live Minutes (صورت‌جلسه) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                صورت‌جلسه و یادداشت‌های نتیجه
-              </h3>
-              {minutesSaved && (
-                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                  ذخیره شد
-                </span>
-              )}
+          {/* Live Minutes — Meeting focused */}
+          {item.type === 'meeting' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  صورت‌جلسه و یادداشت‌های نتیجه
+                </h3>
+                {minutesSaved && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                    ذخیره شد
+                  </span>
+                )}
+              </div>
+              <textarea
+                rows={3}
+                value={minutesDraft}
+                onChange={(e) => setMinutesDraft(e.target.value)}
+                placeholder="مصوبات، تصمیمات و نکات مهم جلسه را اینجا یادداشت کنید..."
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <button
+                type="button"
+                onClick={handleSaveMinutes}
+                disabled={savingMinutes}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 text-xs font-semibold min-h-[38px]"
+              >
+                <Save className="w-3.5 h-3.5" />
+                ذخیره صورت‌جلسه
+              </button>
             </div>
-            <textarea
-              rows={3}
-              value={minutesDraft}
-              onChange={(e) => setMinutesDraft(e.target.value)}
-              placeholder="مصوبات، تصمیمات و نکات مهم جلسه را اینجا یادداشت کنید..."
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-            />
-            <button
-              type="button"
-              onClick={handleSaveMinutes}
-              disabled={savingMinutes}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 text-xs font-semibold min-h-[38px]"
-            >
-              <Save className="w-3.5 h-3.5" />
-              ذخیره صورت‌جلسه
-            </button>
-          </div>
+          )}
 
           {/* Confirmations / Who saw it */}
           <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              وضعیت پاسخ اعضای گروه
+              اطلاعات ثبت و پاسخ اعضا
             </h3>
             <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
-              <p className="flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-emerald-600" />
-                <span>تأیید کرده‌اند:</span>
-                <span className="font-medium">
-                  {confirmedMembers.length > 0
-                    ? confirmedMembers.map((m) => m.displayName).join('، ')
-                    : 'هنوز تأییدی ثبت نشده'}
-                </span>
-              </p>
+              {item.type !== 'task' && (
+                <p className="flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                  <span>تأیید کرده‌اند:</span>
+                  <span className="font-medium">
+                    {confirmedMembers.length > 0
+                      ? confirmedMembers.map((m) => m.displayName).join('، ')
+                      : 'هنوز تأییدی ثبت نشده'}
+                  </span>
+                </p>
+              )}
               {declinedMembers.length > 0 && (
                 <p className="text-red-600 dark:text-red-400">
                   عدم حضور: {declinedMembers.map((m) => m.displayName).join('، ')}
+                </p>
+              )}
+              {item.assigneeName && (
+                <p className="text-slate-600 dark:text-slate-300">
+                  مسئول: {item.assigneeName} ({item.assigneeEmail})
                 </p>
               )}
               <p className="text-slate-500 dark:text-slate-400">

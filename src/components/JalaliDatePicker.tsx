@@ -1,22 +1,30 @@
 import React from 'react';
+import { CalendarOff } from 'lucide-react';
 import {
   addDaysToJalali,
   formatJalaliPretty,
   formatJalaliStr,
   getJalaliMonthLength,
+  getPersianWeekdayIndex,
   getTodayJalaliParts,
   getTodayJalaliStr,
   parseJalaliStr,
   PERSIAN_MONTHS,
   toPersianDigits,
 } from '../lib/jalali';
+import { getIranHoliday } from '../lib/iranHolidays';
 
 interface JalaliDatePickerProps {
   value: string;
   onChange: (jalaliDate: string) => void;
+  label?: string;
 }
 
-export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({ value, onChange }) => {
+export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
+  value,
+  onChange,
+  label = 'تاریخ شمسی',
+}) => {
   const { jy, jm, jd } = parseJalaliStr(value);
   const todayParts = getTodayJalaliParts();
   const years = [
@@ -32,6 +40,9 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({ value, onCha
   const tomorrowStr = addDaysToJalali(todayStr, 1);
   const dayAfterStr = addDaysToJalali(todayStr, 2);
 
+  const holiday = getIranHoliday(value);
+  const isFriday = getPersianWeekdayIndex(jy, jm, jd) === 6;
+
   const handlePartsChange = (newY: number, newM: number, newD: number) => {
     const validMax = getJalaliMonthLength(newY, newM);
     const clampedD = Math.min(newD, validMax);
@@ -42,7 +53,8 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({ value, onCha
     <div className="space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-          تاریخ شمسی: <span className="text-blue-600 dark:text-blue-400">{formatJalaliPretty(value)}</span>
+          {label}:{' '}
+          <span className="text-blue-600 dark:text-blue-400">{formatJalaliPretty(value)}</span>
         </span>
         <div className="flex items-center gap-1.5">
           <button
@@ -121,6 +133,17 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({ value, onCha
           ))}
         </select>
       </div>
+
+      {(holiday || isFriday) && (
+        <div className="rounded-xl border border-red-200 dark:border-red-900/70 bg-red-50/80 dark:bg-red-950/30 px-3 py-2 flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+          <CalendarOff className="w-4 h-4 shrink-0" />
+          <span>
+            {holiday
+              ? `تعطیل رسمی ایران: ${holiday.title}`
+              : 'این تاریخ روز جمعه (تعطیل پایان هفته) است'}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

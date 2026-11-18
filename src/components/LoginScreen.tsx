@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { BellRing, CalendarDays, CheckCircle2, Loader2, Mail, ShieldCheck, Users } from 'lucide-react';
+import {
+  BellRing,
+  CalendarDays,
+  CheckCircle2,
+  ExternalLink,
+  Loader2,
+  Mail,
+  MessageCircle,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -31,7 +41,7 @@ export const LoginScreen: React.FC = () => {
         <div className="lg:col-span-6 flex flex-col justify-center space-y-6">
           <div className="space-y-3">
             <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              مدیریت اجرایی جلسات، کارها و رویدادهای شمسی
+              نسخه آزمایشی · ساخته‌شده توسط سید حسین موسوی
             </p>
             <h1
               className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white leading-tight"
@@ -40,11 +50,11 @@ export const LoginScreen: React.FC = () => {
               هماهنگی لحظه‌ای میان مدیر و همکاران، مستقیم با جیمیل
             </h1>
             <p className="text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-              گروه کاری بسازید، همکار یا مسئول دفتر خود را با جیمیل متصل کنید و جلسات و کارها را روی تقویم کامل شمسی ثبت نمایید تا اعلان فوری روی گوشی همگروهی‌ها نمایش داده شود.
+              گروه کاری بسازید، همکار یا مسئول دفتر خود را با جیمیل متصل کنید و جلسات و کارها را روی تقویم کامل شمسی (به همراه تعطیلات رسمی ایران) ثبت نمایید تا اعلان فوری روی گوشی همگروهی‌ها نمایش داده شود.
             </p>
           </div>
 
-          {/* 3 Concrete Capabilities without card clutter */}
+          {/* 3 Concrete Capabilities */}
           <div className="divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800">
             <div className="py-3.5 flex items-start gap-3">
               <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
@@ -65,7 +75,7 @@ export const LoginScreen: React.FC = () => {
                   اعلان فوری و تأیید حضور روی گوشی
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  با ثبت هر جلسه یا پیگیری، اعلان آنی برای اعضای گروه ارسال شده و تأیید رؤیت و حضور به اطلاع شما می‌رسد.
+                  با ثبت هر جلسه، کار یا رویداد، اعلان آنی برای اعضای گروه ارسال شده و تأیید رؤیت و حضور به اطلاع شما می‌رسد.
                 </p>
               </div>
             </div>
@@ -74,10 +84,10 @@ export const LoginScreen: React.FC = () => {
               <CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  تقویم کامل شمسی و نصب روی اندروید
+                  تقویم کامل شمسی با تعطیلات رسمی ایران
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  طراحی‌شده با فونت وزیر، تاریخ دقیق هجری شمسی و قابلیت نصب به‌صورت اپلیکیشن مستقل اندروید.
+                  طراحی‌شده با فونت وزیر، نمایش کامل تعطیلات رسمی تقویم ایران و قابلیت نصب به‌صورت اپلیکیشن اندروید.
                 </p>
               </div>
             </div>
@@ -113,11 +123,33 @@ export const LoginScreen: React.FC = () => {
               <span>اطلاعات شما در فضای اختصاصی گروه کاری خودتان رمزنگاری و محافظت می‌شود.</span>
             </div>
           </div>
+
+          {/* Creator & Beta Notice + Contact Section */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                ارتباط با سازنده و گزارش بازخورد
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                این نسخه از برنامه آزمایشی است و توسط <span className="font-semibold text-slate-900 dark:text-slate-200">سید حسین موسوی</span> ساخته شده است.
+              </p>
+            </div>
+            <a
+              href="https://ble.ir/gomnam74"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-4 py-2.5 text-xs font-bold transition-colors min-h-[42px] whitespace-nowrap shrink-0"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>ارتباط در بله</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </section>
         </div>
 
         {/* Left Column: High-Craft Editorial Visual */}
         <div className="lg:col-span-6 flex">
-          <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 min-h-[280px] lg:min-h-[480px] flex items-end">
+          <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 min-h-[280px] lg:min-h-[500px] flex items-end">
             {!imgError ? (
               <img
                 src="/src/assets/images/hamahangi_welcome_desk_1794938541772.jpg"
@@ -147,9 +179,16 @@ export const LoginScreen: React.FC = () => {
         </div>
       </main>
 
-      <footer className="w-full max-w-6xl mx-auto px-5 py-4 text-xs text-slate-500 dark:text-slate-500 flex flex-wrap items-center justify-between gap-2">
-        <span>اپلیکیشن مدیریت جلسات، کارها و رویدادها — هماهنگی</span>
-        <span>پشتیبانی کامل از تقویم هجری شمسی و نصب اندروید</span>
+      <footer className="w-full max-w-6xl mx-auto px-5 py-4 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 dark:border-slate-800/70">
+        <span>هماهنگی (نسخه آزمایشی) · ساخته‌شده توسط سید حسین موسوی</span>
+        <a
+          href="https://ble.ir/gomnam74"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+        >
+          ارتباط با سازنده: ble.ir/gomnam74
+        </a>
       </footer>
     </div>
   );

@@ -4,6 +4,9 @@ import {
   BellRing,
   Check,
   CheckCheck,
+  ExternalLink,
+  Info,
+  MessageCircle,
   Moon,
   Smartphone,
   Sun,
@@ -137,6 +140,31 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onOpenItem
           </button>
         </div>
       </div>
+
+      {/* Beta Version & Creator Info */}
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              درباره این نسخه
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              این نسخه از برنامه آزمایشی است و توسط <strong className="text-slate-900 dark:text-slate-100">سید حسین موسوی</strong> ساخته شده است.
+            </p>
+          </div>
+        </div>
+        <a
+          href="https://ble.ir/gomnam74"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-4 py-2.5 text-xs font-bold min-h-[42px] whitespace-nowrap shrink-0"
+        >
+          <MessageCircle className="w-4 h-4" />
+          <span>ارتباط با سازنده (بله)</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </section>
 
       {/* Notifications List */}
       {notifications.length === 0 ? (

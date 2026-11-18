@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { CalendarOff, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
   formatJalaliPretty,
@@ -10,6 +10,11 @@ import {
   PERSIAN_WEEKDAYS_SHORT,
   toPersianDigits,
 } from '../lib/jalali';
+import {
+  formatHolidayDayLabel,
+  getIranHoliday,
+  getMonthIranHolidays,
+} from '../lib/iranHolidays';
 import { WorkspaceItem } from '../types/hamahangi';
 import { ItemCard } from './ItemCard';
 import { respondToItemAttendance, updateItemStatus } from '../services/firestoreService';
@@ -32,6 +37,11 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
   const cells = useMemo(() => getJalaliMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
+  const monthHolidays = useMemo(
+    () => getMonthIranHolidays(viewYear, viewMonth),
+    [viewYear, viewMonth]
+  );
+  const selectedHoliday = useMemo(() => getIranHoliday(selectedDate), [selectedDate]);
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, WorkspaceItem[]>();
@@ -84,7 +94,7 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
             تقویم کامل شمسی
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            برای مشاهده یا ثبت جلسه و رویداد، هر روز را لمس کنید
+            همراه با تعطیلات رسمی ایران و نمایش جلسات، کارها و رویدادها
           </p>
         </div>
 
@@ -97,119 +107,168 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Monthly Shamsi Calendar Grid */}
-        <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-4">
-          {/* Month Controls */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={goPrevMonth}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
-              aria-label="ماه قبل"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white tabular-nums">
-              {PERSIAN_MONTHS[viewMonth - 1]} {toPersianDigits(viewYear)}
-            </h2>
-            <button
-              onClick={goNextMonth}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
-              aria-label="ماه بعد"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {PERSIAN_WEEKDAYS_SHORT.map((wd, idx) => (
-              <div
-                key={wd}
-                className={`py-2 text-xs font-bold ${
-                  idx === 6 ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'
-                }`}
+        {/* Monthly Shamsi Calendar Grid + Month Holidays */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-4">
+            {/* Month Controls */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={goPrevMonth}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                aria-label="ماه قبل"
               >
-                {wd}
-              </div>
-            ))}
-          </div>
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white tabular-nums">
+                {PERSIAN_MONTHS[viewMonth - 1]} {toPersianDigits(viewYear)}
+              </h2>
+              <button
+                onClick={goNextMonth}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                aria-label="ماه بعد"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            </div>
 
-          {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
-            {cells.map((cell) => {
-              const dayList = itemsByDate.get(cell.jalaliDate) ?? [];
-              const isSelected = cell.jalaliDate === selectedDate;
-              const hasMeeting = dayList.some((i) => i.type === 'meeting');
-              const hasTask = dayList.some((i) => i.type === 'task');
-              const hasEvent = dayList.some((i) => i.type === 'event');
-
-              return (
-                <button
-                  key={cell.jalaliDate}
-                  onClick={() => setSelectedDate(cell.jalaliDate)}
-                  className={`min-h-[52px] sm:min-h-[60px] rounded-xl p-1.5 flex flex-col items-center justify-between transition-colors border ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : cell.isToday
-                      ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                      : cell.isCurrentMonth
-                      ? 'bg-slate-50/60 dark:bg-slate-800/40 border-transparent hover:border-slate-300 dark:hover:border-slate-700 text-slate-900 dark:text-slate-100'
-                      : 'bg-transparent border-transparent text-slate-400 dark:text-slate-600'
+            {/* Weekday Headers */}
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {PERSIAN_WEEKDAYS_SHORT.map((wd, idx) => (
+                <div
+                  key={wd}
+                  className={`py-2 text-xs font-bold ${
+                    idx === 6 ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  <span
-                    className={`text-xs sm:text-sm font-bold tabular-nums ${
-                      !isSelected && cell.isFriday && cell.isCurrentMonth
-                        ? 'text-red-500'
-                        : ''
+                  {wd}
+                </div>
+              ))}
+            </div>
+
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+              {cells.map((cell) => {
+                const dayList = itemsByDate.get(cell.jalaliDate) ?? [];
+                const isSelected = cell.jalaliDate === selectedDate;
+                const holiday = getIranHoliday(cell.jalaliDate);
+                const isHolidayOrFriday = cell.isFriday || Boolean(holiday);
+                const hasMeeting = dayList.some((i) => i.type === 'meeting');
+                const hasTask = dayList.some((i) => i.type === 'task');
+                const hasEvent = dayList.some((i) => i.type === 'event');
+
+                return (
+                  <button
+                    key={cell.jalaliDate}
+                    onClick={() => setSelectedDate(cell.jalaliDate)}
+                    title={holiday ? `تعطیل رسمی: ${holiday.title}` : undefined}
+                    className={`min-h-[54px] sm:min-h-[62px] rounded-xl p-1.5 flex flex-col items-center justify-between transition-colors border ${
+                      isSelected
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : cell.isToday
+                        ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                        : holiday && cell.isCurrentMonth
+                        ? 'bg-red-50/70 dark:bg-red-950/25 border-red-200/70 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:border-red-300'
+                        : cell.isCurrentMonth
+                        ? 'bg-slate-50/60 dark:bg-slate-800/40 border-transparent hover:border-slate-300 dark:hover:border-slate-700 text-slate-900 dark:text-slate-100'
+                        : 'bg-transparent border-transparent text-slate-400 dark:text-slate-600'
                     }`}
                   >
-                    {toPersianDigits(cell.jd)}
-                  </span>
+                    <span
+                      className={`text-xs sm:text-sm font-bold tabular-nums ${
+                        !isSelected && isHolidayOrFriday && cell.isCurrentMonth
+                          ? 'text-red-600 dark:text-red-400'
+                          : ''
+                      }`}
+                    >
+                      {toPersianDigits(cell.jd)}
+                    </span>
 
-                  {/* Subtle Event Type Dots */}
-                  <div className="flex items-center gap-1 h-2">
-                    {hasMeeting && (
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isSelected ? 'bg-white' : 'bg-blue-600 dark:bg-blue-400'
-                        }`}
-                      />
-                    )}
-                    {hasTask && (
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isSelected ? 'bg-emerald-200' : 'bg-emerald-600 dark:bg-emerald-400'
-                        }`}
-                      />
-                    )}
-                    {hasEvent && (
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isSelected ? 'bg-amber-200' : 'bg-amber-500'
-                        }`}
-                      />
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                    {/* Subtle Event Type Dots */}
+                    <div className="flex items-center gap-1 h-2">
+                      {hasMeeting && (
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isSelected ? 'bg-white' : 'bg-blue-600 dark:bg-blue-400'
+                          }`}
+                        />
+                      )}
+                      {hasTask && (
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isSelected ? 'bg-emerald-200' : 'bg-emerald-600 dark:bg-emerald-400'
+                          }`}
+                        />
+                      )}
+                      {hasEvent && (
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isSelected ? 'bg-amber-200' : 'bg-amber-500'
+                          }`}
+                        />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+                جلسه
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                کار و پیگیری
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                رویداد
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                تعطیل رسمی ایران
+              </span>
+            </div>
           </div>
 
-          {/* Legend */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-600" />
-              جلسه
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-600" />
-              کار و پیگیری
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              رویداد
-            </span>
+          {/* Official Iranian Holidays of this Month */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <CalendarOff className="w-4 h-4 text-red-600 dark:text-red-400" />
+                تعطیلات رسمی {PERSIAN_MONTHS[viewMonth - 1]} {toPersianDigits(viewYear)}
+              </h3>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                {toPersianDigits(monthHolidays.length)} مناسبت
+              </span>
+            </div>
+
+            {monthHolidays.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                در این ماه تعطیل رسمی میان‌هفته (به‌جز جمعه‌ها) ثبت نشده است.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {monthHolidays.map((h) => (
+                  <button
+                    key={h.jalaliDate}
+                    onClick={() => setSelectedDate(h.jalaliDate)}
+                    className={`w-full py-2.5 px-2 rounded-lg flex items-center justify-between gap-3 text-right hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${
+                      selectedDate === h.jalaliDate ? 'bg-red-50/70 dark:bg-red-950/30' : ''
+                    }`}
+                  >
+                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                      {h.title}
+                    </span>
+                    <span className="text-xs font-bold text-red-600 dark:text-red-400 tabular-nums shrink-0">
+                      {formatHolidayDayLabel(h.jalaliDate)} {PERSIAN_MONTHS[viewMonth - 1]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -233,13 +292,23 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
             </button>
           </div>
 
+          {selectedHoliday && (
+            <div className="rounded-xl border border-red-200 dark:border-red-900/70 bg-red-50/80 dark:bg-red-950/30 px-4 py-3 flex items-center gap-2.5 text-xs text-red-700 dark:text-red-300">
+              <CalendarOff className="w-4 h-4 shrink-0" />
+              <div>
+                <span className="font-bold">تعطیل رسمی ایران:</span>{' '}
+                <span>{selectedHoliday.title}</span>
+              </div>
+            </div>
+          )}
+
           {selectedDayItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center space-y-2">
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                 برنامه‌ای در این تاریخ نیست
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                می‌توانید همین حالا جلسه یا کار جدیدی اضافه کنید.
+                می‌توانید همین حالا جلسه، کار یا رویداد جدیدی اضافه کنید.
               </p>
             </div>
           ) : (

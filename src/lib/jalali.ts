@@ -230,6 +230,33 @@ export function getJalaliWeekStrip(centerJalaliStr: string): JalaliCalendarCell[
   return result;
 }
 
+export function getJalaliSaturdayWeek(jalaliStr: string): JalaliCalendarCell[] {
+  const { jy, jm, jd } = parseJalaliStr(jalaliStr);
+  const weekdayIdx = getPersianWeekdayIndex(jy, jm, jd); // 0=Sat .. 6=Fri
+  const saturdayStr = addDaysToJalali(jalaliStr, -weekdayIdx);
+  const todayStr = getTodayJalaliStr();
+  const result: JalaliCalendarCell[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const jStr = addDaysToJalali(saturdayStr, i);
+    const parts = parseJalaliStr(jStr);
+    const wd = getPersianWeekdayIndex(parts.jy, parts.jm, parts.jd);
+    result.push({
+      jalaliDate: jStr,
+      gregorianDate: jalaliToGregorianStr(jStr),
+      jy: parts.jy,
+      jm: parts.jm,
+      jd: parts.jd,
+      isCurrentMonth: true,
+      isToday: jStr === todayStr,
+      isFriday: wd === 6,
+      weekdayIdx: wd,
+    });
+  }
+
+  return result;
+}
+
 export function formatRelativeTimePersian(date: Date | undefined): string {
   if (!date) return 'هم‌اکنون';
   const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);

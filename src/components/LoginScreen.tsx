@@ -40,9 +40,6 @@ export const LoginScreen: React.FC = () => {
         {/* Right Column (RTL first): Value Prop + Google Sign In */}
         <div className="lg:col-span-6 flex flex-col justify-center space-y-6">
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              نسخه آزمایشی · ساخته‌شده توسط سید حسین موسوی
-            </p>
             <h1
               className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white leading-tight"
               style={{ textWrap: 'balance' }}

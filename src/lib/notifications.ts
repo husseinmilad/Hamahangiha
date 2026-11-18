@@ -63,6 +63,17 @@ function tokenDocumentId(token: string): string {
   return (hash >>> 0).toString(36);
 }
 
+async function registerMessagingServiceWorker(): Promise<ServiceWorkerRegistration> {
+  const pwaRegistration = await navigator.serviceWorker.getRegistration();
+  const appRoot = new URL(
+    pwaRegistration?.scope || import.meta.env.BASE_URL,
+    window.location.href
+  );
+  const workerUrl = new URL('firebase-messaging/firebase-messaging-sw.js', appRoot);
+  const workerScope = new URL('firebase-messaging/', appRoot);
+  return navigator.serviceWorker.register(workerUrl.href, { scope: workerScope.pathname });
+}
+
 async function savePushToken(userId: string, token: string, platform: 'web' | 'android' | 'ios') {
   const tokenId = tokenDocumentId(token);
   await setDoc(doc(db, 'users', userId, 'fcmTokens', tokenId), {
@@ -130,7 +141,7 @@ export async function setupDevicePush(userId: string): Promise<() => void> {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && await isSupported()) {
       const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
       if (vapidKey) {
-        const registration = await navigator.serviceWorker.register('/firebase-messaging/firebase-messaging-sw.js', { scope: '/firebase-messaging/' });
+        const registration = await registerMessagingServiceWorker();
         const messaging = getMessaging(getApp());
         const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
         if (token) await savePushToken(userId, token, 'web');

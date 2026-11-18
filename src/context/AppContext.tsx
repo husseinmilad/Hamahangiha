@@ -32,6 +32,7 @@ import {
   setupDevicePush,
   enableRemotePush,
   scheduleNativeReminders,
+  unregisterDevicePush,
 } from '../lib/notifications';
 import { getTodayJalaliStr, toPersianDigits } from '../lib/jalali';
 
@@ -463,13 +464,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const signOutUser = useCallback(async () => {
+    if (user) await unregisterDevicePush(user.uid);
     if (Capacitor.isNativePlatform()) {
       try { await FirebaseAuthentication.signOut(); } catch (error) {
         console.warn('Native sign-out was skipped', error);
       }
     }
     await signOut(auth);
-  }, []);
+  }, [user]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length + incomingInvites.length,

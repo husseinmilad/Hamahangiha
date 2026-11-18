@@ -23,7 +23,8 @@
     "@capacitor/core": "^7.4.3",
     "@capacitor/android": "^7.4.3",
     "@capacitor/local-notifications": "^7.0.2",
-    "@capacitor/push-notifications": "^7.0.2"
+    "@capacitor/push-notifications": "^7.0.2",
+    "@capacitor-firebase/authentication": "^7.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.26.0",

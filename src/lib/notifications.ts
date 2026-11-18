@@ -35,6 +35,12 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
     try {
       let permission = await LocalNotifications.checkPermissions();
       if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
+      if (permission.display === 'granted' && Capacitor.getPlatform() === 'android') {
+        const exact = await LocalNotifications.checkExactNotificationSetting();
+        if (exact.exact_alarm !== 'granted') {
+          await LocalNotifications.changeExactNotificationSetting();
+        }
+      }
       return permission.display === 'granted' ? 'granted' : permission.display === 'denied' ? 'denied' : 'default';
     } catch {
       return 'unsupported';

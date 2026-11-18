@@ -1,4 +1,4 @@
-name: Deploy Firebase Cloud Functions
+name: Deploy Firebase Cloud Functions and Firestore rules
 
 on:
   push:
@@ -39,4 +39,4 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
       - name: Deploy notification function
-        run: npx --yes firebase-tools deploy --only functions --project peak-amp-lxjsq --non-interactive
+        run: npx --yes firebase-tools deploy --only firestore:ai-studio-hamahangi-ac566711-0b2e-48f6-b737-0db9ea92d2f8,functions --project peak-amp-lxjsq --non-interactive

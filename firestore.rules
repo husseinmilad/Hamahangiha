@@ -220,7 +220,15 @@ service cloud.firestore {
           && incoming().ownerUid == existing().ownerUid
           && incoming().joinedAt == existing().joinedAt
           && incoming().diff(existing()).affectedKeys().hasOnly(['workspaceName', 'role']);
-        allow delete: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(workspaceId) && request.auth.uid == userId;
+        allow delete: if isSignedIn() && isVerified() && isValidId(userId) && isValidId(workspaceId)
+          && (
+            request.auth.uid == userId
+            || (
+              isWorkspaceAdmin(workspaceId)
+              && exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId))
+              && get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId)).data.role != 'owner'
+            )
+          );
       }
 
       // 3. User Notifications

@@ -1,4 +1,4 @@
-const { initializeApp } = require('firebase-admin/app');
+const { getApp, initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -6,12 +6,14 @@ const { logger } = require('firebase-functions');
 
 initializeApp();
 
-const db = getFirestore();
+const FIRESTORE_DATABASE_ID = 'ai-studio-hamahangi-ac566711-0b2e-48f6-b737-0db9ea92d2f8';
+const db = getFirestore(getApp(), FIRESTORE_DATABASE_ID);
 const messaging = getMessaging();
 
 exports.sendUserNotificationPush = onDocumentCreated(
   {
     document: 'users/{userId}/notifications/{notificationId}',
+    database: 'ai-studio-hamahangi-ac566711-0b2e-48f6-b737-0db9ea92d2f8',
     region: 'us-central1',
     retry: true,
   },

@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { db } from './firebase';
@@ -64,6 +64,17 @@ async function savePushToken(userId: string, token: string, platform: 'web' | 'a
     platform,
     updatedAt: serverTimestamp(),
   }, { merge: true });
+  localStorage.setItem(`hamahangi_fcm_token_${userId}`, tokenId);
+}
+
+export async function unregisterDevicePush(userId: string): Promise<void> {
+  const tokenId = localStorage.getItem(`hamahangi_fcm_token_${userId}`);
+  if (!tokenId) return;
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'fcmTokens', tokenId));
+  } finally {
+    localStorage.removeItem(`hamahangi_fcm_token_${userId}`);
+  }
 }
 
 export async function setupDevicePush(userId: string): Promise<() => void> {
@@ -165,9 +176,12 @@ function reminderId(item: WorkspaceItem): number {
   return (hash >>> 0) % 2147483000 + 1;
 }
 
-export async function scheduleNativeReminders(items: WorkspaceItem[]): Promise<void> {
-  if (!isNativePlatform()) return;
-  try {
+let reminderScheduleQueue: Promise<void> = Promise.resolve();
+
+export function scheduleNativeReminders(items: WorkspaceItem[]): Promise<void> {
+  if (!isNativePlatform()) return Promise.resolve();
+  const itemSnapshot = [...items];
+  reminderScheduleQueue = reminderScheduleQueue.then(async () => {
     await LocalNotifications.createChannel({
       id: 'hamahangi_reminders',
       name: 'یادآوری جلسات و کارها',
@@ -183,7 +197,7 @@ export async function scheduleNativeReminders(items: WorkspaceItem[]): Promise<v
     if (oldReminders.length) await LocalNotifications.cancel({ notifications: oldReminders });
 
     const now = Date.now();
-    const notifications = items
+    const notifications = itemSnapshot
       .filter((item) =>
         item.status !== 'completed' &&
         item.status !== 'cancelled' &&
@@ -207,9 +221,10 @@ export async function scheduleNativeReminders(items: WorkspaceItem[]): Promise<v
         extra: { source: 'hamahangi-reminder', itemId: item.id, workspaceId: item.workspaceId },
       }));
     if (notifications.length) await LocalNotifications.schedule({ notifications });
-  } catch (error) {
+  }).catch((error) => {
     console.error('Native reminder scheduling failed', error);
-  }
+  });
+  return reminderScheduleQueue;
 }
 
 export function playNotificationChime(): void {

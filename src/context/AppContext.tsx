@@ -22,6 +22,7 @@ import {
 import { ensureUserProfile } from '../services/firestoreService';
 import {
   getNotificationPermission,
+  refreshNotificationPermission,
   NotificationPermissionState,
   requestNotificationPermission,
   showDeviceNotification,
@@ -105,6 +106,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isInitialNotifBatchRef = useRef(true);
   const firedReminderKeysRef = useRef<Set<string>>(new Set());
   const reminderItemsByWorkspaceRef = useRef<Map<string, WorkspaceItem[]>>(new Map());
+
+  useEffect(() => {
+    let active = true;
+    void refreshNotificationPermission().then((permission) => {
+      if (active) setNotifPermission(permission);
+    });
+    return () => { active = false; };
+  }, []);
 
   // Sync theme to document.documentElement
   useEffect(() => {

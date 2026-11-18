@@ -56,8 +56,11 @@ jobs:
 
       - name: Configure native Google Credential Manager
         run: |
-          grep -q 'rgcfaIncludeGoogle' android/variables.gradle || \
-            sed -i '/ext {/a\    rgcfaIncludeGoogle = true\n    androidxCredentialsVersion = "1.3.0"' android/variables.gradle
+          if ! grep -q 'rgcfaIncludeGoogle' android/variables.gradle; then
+            sed -i '/ext {/a\\
+              rgcfaIncludeGoogle = true
+              androidxCredentialsVersion = "1.3.0"' android/variables.gradle
+          fi
 
       - name: Configure Firebase Android app (optional)
         if: env.GOOGLE_SERVICES_JSON_BASE64 != ''

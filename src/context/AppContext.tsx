@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
   collection,
   doc,
@@ -444,7 +446,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthLoading(true);
     setAuthError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      if (Capacitor.isNativePlatform()) {
+        const result = await FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
+        const idToken = result.credential?.idToken;
+        if (!idToken) throw new Error('ورود گوگل توکن معتبر برنگرداند؛ تنظیمات Firebase Android را بررسی کنید.');
+        await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'خطا در ورود با حساب گوگل';
       setAuthError(msg);
@@ -454,6 +463,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const signOutUser = useCallback(async () => {
+    if (Capacitor.isNativePlatform()) {
+      try { await FirebaseAuthentication.signOut(); } catch (error) {
+        console.warn('Native sign-out was skipped', error);
+      }
+    }
     await signOut(auth);
   }, []);
 

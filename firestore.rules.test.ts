@@ -65,7 +65,7 @@ function notificationPayload(senderUid: string, senderEmail: string) {
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
-    projectId: 'hamahangi-rules-test',
+    projectId: 'demo-hamahangi-rules-test',
     firestore: { rules: readFileSync('firestore.rules', 'utf8') },
   });
 });

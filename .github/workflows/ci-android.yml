@@ -64,10 +64,26 @@ jobs:
           if "rgcfaIncludeGoogle" not in content:
               content = content.replace(
                   "ext {",
-                  "ext {\\n    rgcfaIncludeGoogle = true\\n    androidxCredentialsVersion = '1.3.0'",
+                  "ext {\n    rgcfaIncludeGoogle = true\n    androidxCredentialsVersion = '1.3.0'",
                   1,
               )
               path.write_text(content)
+          PY
+
+      - name: Add Android scheduled-alarm permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          content = path.read_text()
+          permissions = [
+              '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />',
+              '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+          ]
+          for permission in permissions:
+              if permission not in content:
+                  content = content.replace("<application", permission + "\\n    <application", 1)
+          path.write_text(content)
           PY
 
       - name: Install stable Android debug signing key (optional)

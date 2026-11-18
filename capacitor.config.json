@@ -1,0 +1,14 @@
+{
+  "appId": "ir.hamahangi.app",
+  "appName": "هماهنگی",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": [
+        "google.com"
+      ]
+    }
+  }
+}

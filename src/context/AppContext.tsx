@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
   collection,
   doc,
@@ -22,9 +24,15 @@ import {
 import { ensureUserProfile } from '../services/firestoreService';
 import {
   getNotificationPermission,
+  refreshNotificationPermission,
   NotificationPermissionState,
   requestNotificationPermission,
   showDeviceNotification,
+  isNativePlatform,
+  setupDevicePush,
+  enableRemotePush,
+  scheduleNativeReminders,
+  unregisterDevicePush,
 } from '../lib/notifications';
 import { getTodayJalaliStr, toPersianDigits } from '../lib/jalali';
 
@@ -100,6 +108,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const seenNotifIdsRef = useRef<Set<string>>(new Set());
   const isInitialNotifBatchRef = useRef(true);
   const firedReminderKeysRef = useRef<Set<string>>(new Set());
+  const reminderItemsByWorkspaceRef = useRef<Map<string, WorkspaceItem[]>>(new Map());
+
+  useEffect(() => {
+    let active = true;
+    void refreshNotificationPermission().then((permission) => {
+      if (active) setNotifPermission(permission);
+    });
+    return () => { active = false; };
+  }, []);
 
   // Sync theme to document.documentElement
   useEffect(() => {
@@ -124,8 +141,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const enableDeviceNotifications = useCallback(async () => {
     const res = await requestNotificationPermission();
     setNotifPermission(res);
+    if (res === 'granted' && user) {
+      const pushReady = await enableRemotePush(user.uid);
+      if (!pushReady) {
+        console.warn('Remote push is not fully configured; local Android reminders remain available.');
+      }
+    }
     return res;
-  }, []);
+  }, [user]);
 
   const dismissLiveToast = useCallback(() => {
     setLiveToast(null);
@@ -158,6 +181,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     return () => unsub();
   }, []);
+
+  // Register FCM listeners for this signed-in device. Permission is requested only after user action.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    void setupDevicePush(user.uid)
+      .then((dispose) => {
+        if (cancelled) dispose();
+        else cleanup = dispose;
+      })
+      .catch((error) => console.error('Push listener setup failed', error));
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [user]);
 
   // User profile, memberships, notifications, invites listeners
   useEffect(() => {
@@ -216,7 +256,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               body: latest.body,
               itemId: latest.itemId,
             });
-            showDeviceNotification(latest.title, latest.body, latest.id);
+            if (!isNativePlatform()) {
+              void showDeviceNotification(latest.title, latest.body, latest.id);
+            }
           }
         }
       },
@@ -257,6 +299,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubOutInv();
     };
   }, [authReady, user]);
+
+  // Keep native reminder schedules in sync across every workspace, not only the selected one.
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    reminderItemsByWorkspaceRef.current.clear();
+    if (!user || memberships.length === 0) {
+      void scheduleNativeReminders([]);
+      return;
+    }
+    const unsubscribers = memberships.map((membership) =>
+      onSnapshot(
+        collection(db, 'workspaces', membership.workspaceId, 'items'),
+        (snapshot) => {
+          reminderItemsByWorkspaceRef.current.set(
+            membership.workspaceId,
+            snapshot.docs.map((itemDoc) => itemDoc.data() as WorkspaceItem)
+          );
+          const allItems = Array.from(reminderItemsByWorkspaceRef.current.values()).flat();
+          void scheduleNativeReminders(allItems);
+        },
+        (error) => console.error('Native reminder sync failed', membership.workspaceId, error)
+      )
+    );
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      reminderItemsByWorkspaceRef.current.clear();
+    };
+  }, [user, memberships]);
 
   // Active workspace, members, and items listeners
   useEffect(() => {
@@ -320,6 +390,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Background meeting reminder checker (every 45s)
   useEffect(() => {
+    if (isNativePlatform()) return;
     if (!user || items.length === 0) return;
 
     const checkReminders = () => {
@@ -376,7 +447,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthLoading(true);
     setAuthError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      if (Capacitor.isNativePlatform()) {
+        const result = await FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
+        const idToken = result.credential?.idToken;
+        if (!idToken) throw new Error('ورود گوگل توکن معتبر برنگرداند؛ تنظیمات Firebase Android را بررسی کنید.');
+        await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'خطا در ورود با حساب گوگل';
       setAuthError(msg);
@@ -386,8 +464,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const signOutUser = useCallback(async () => {
+    if (user) await unregisterDevicePush(user.uid);
+    if (Capacitor.isNativePlatform()) {
+      try { await FirebaseAuthentication.signOut(); } catch (error) {
+        console.warn('Native sign-out was skipped', error);
+      }
+    }
     await signOut(auth);
-  }, []);
+  }, [user]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length + incomingInvites.length,

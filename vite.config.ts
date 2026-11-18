@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // Relative asset URLs are required when the web bundle is loaded from Capacitor's file:// origin.
+  base: './',
   plugins: [
     react(),
     tailwindcss(),

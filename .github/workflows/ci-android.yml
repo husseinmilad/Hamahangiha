@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+      ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -56,11 +57,24 @@ jobs:
 
       - name: Configure native Google Credential Manager
         run: |
-          if ! grep -q 'rgcfaIncludeGoogle' android/variables.gradle; then
-            sed -i '/ext {/a\\
-              rgcfaIncludeGoogle = true
-              androidxCredentialsVersion = "1.3.0"' android/variables.gradle
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/variables.gradle")
+          content = path.read_text()
+          if "rgcfaIncludeGoogle" not in content:
+              content = content.replace(
+                  "ext {",
+                  "ext {\\n    rgcfaIncludeGoogle = true\\n    androidxCredentialsVersion = '1.3.0'",
+                  1,
+              )
+              path.write_text(content)
+          PY
+
+      - name: Install stable Android debug signing key (optional)
+        if: env.ANDROID_DEBUG_KEYSTORE_BASE64 != ''
+        run: |
+          mkdir -p "$HOME/.android"
+          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
 
       - name: Configure Firebase Android app (optional)
         if: env.GOOGLE_SERVICES_JSON_BASE64 != ''
@@ -76,6 +90,13 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
+
+      - name: Show Android signing SHA-1
+        if: always()
+        run: |
+          if [ -f "$HOME/.android/debug.keystore" ]; then
+            keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null | grep -E 'SHA1:|SHA-1:'
+          fi
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

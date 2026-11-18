@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PWAInstallButton } from './PWAInstallButton';
+import welcomeDeskImage from '../assets/images/hamahangi_welcome_desk_1794938541772.jpg';
 
 export const LoginScreen: React.FC = () => {
   const { signInWithGoogle, authLoading, authError } = useApp();
@@ -47,7 +48,7 @@ export const LoginScreen: React.FC = () => {
               هماهنگی لحظه‌ای میان مدیر و همکاران، مستقیم با جیمیل
             </h1>
             <p className="text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-              گروه کاری بسازید، همکار یا مسئول دفتر خود را با جیمیل متصل کنید و جلسات و کارها را روی تقویم کامل شمسی (به همراه تعطیلات رسمی ایران) ثبت نمایید تا اعلان فوری روی گوشی همگروهی‌ها نمایش داده شود.
+              گروه کاری بسازید، همکار یا مسئول دفتر خود را با جیمیل متصل کنید و جلسات و کارها را روی تقویم کامل شمسی (به همراه تعطیلات رسمی ایران) ثبت نمایید تا اعلان‌های درون‌برنامه‌ای و اعلان دستگاه هنگام فعال بودن برنامه در دسترس همگروهی‌ها باشد.
             </p>
           </div>
 
@@ -149,7 +150,7 @@ export const LoginScreen: React.FC = () => {
           <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 min-h-[280px] lg:min-h-[500px] flex items-end">
             {!imgError ? (
               <img
-                src="/src/assets/images/hamahangi_welcome_desk_1794938541772.jpg"
+                src={welcomeDeskImage}
                 alt="میز برنامه‌ریزی و تقویم شمسی هماهنگی"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}

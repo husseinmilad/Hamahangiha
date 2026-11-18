@@ -55,6 +55,14 @@ async function savePushToken(userId: string, token: string, platform: 'web' | 'a
 
 export async function setupDevicePush(userId: string): Promise<() => void> {
   if (isNativePlatform()) {
+    await LocalNotifications.createChannel({
+      id: 'hamahangi_notifications',
+      name: 'اعلان‌های هماهنگی',
+      description: 'اعلان‌های گروه کاری و پیام‌های جدید',
+      importance: 5,
+      sound: 'default',
+      vibration: true,
+    });
     const listeners = [];
     listeners.push(await PushNotifications.addListener('registration', ({ value }) => {
       void savePushToken(userId, value, Capacitor.getPlatform() === 'ios' ? 'ios' : 'android')
@@ -176,7 +184,6 @@ export async function scheduleNativeReminders(items: WorkspaceItem[]): Promise<v
         body: `${item.reminderMinutes} دقیقه تا شروع ${item.type === 'meeting' ? 'جلسه' : item.type === 'task' ? 'کار' : 'رویداد'} — ساعت ${item.startTime}`,
         schedule: { at, allowWhileIdle: true },
         channelId: 'hamahangi_reminders',
-        smallIcon: 'ic_stat_icon_config_sample',
         extra: { source: 'hamahangi-reminder', itemId: item.id, workspaceId: item.workspaceId },
       }));
     if (notifications.length) await LocalNotifications.schedule({ notifications });

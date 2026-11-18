@@ -41,6 +41,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Validate Firebase worker and Cloud Function syntax
+        run: |
+          node --check public/firebase-messaging/firebase-messaging-sw.js
+          node --check functions/index.js
+
       - name: Firestore security rules tests
         run: npm run test:rules
 

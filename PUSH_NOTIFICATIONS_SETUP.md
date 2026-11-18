@@ -41,7 +41,7 @@ keytool -genkeypair -v -keystore hamahangi-debug.keystore -storepass android -al
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json"))
 ```
 
-پس از تنظیم Secretها، Workflow ساخت Android را دوباره اجرا کنید. Workflow جداگانه Deploy Functions نیز پس از Merge شدن کد به main یا با اجرای دستی قابل اجراست.
+پس از تنظیم Secretها، Workflow ساخت Android را دوباره اجرا کنید. Workflow جداگانه، هم Cloud Function و هم قواعد امنیتی دیتابیس نام‌دار برنامه را Deploy می‌کند؛ این Workflow پس از Merge شدن کد به main یا با اجرای دستی قابل اجراست.
 
 ## محدودیت مهم
 تا پیش از ثبت اپ اندروید در Firebase و قراردادن `GOOGLE_SERVICES_JSON_BASE64`، APK ساخته می‌شود و یادآوری‌های محلی اندروید کار می‌کنند، اما ثبت توکن FCM بومی و Push اندروید فعال نخواهد شد. تا پیش از قراردادن `FIREBASE_SERVICE_ACCOUNT` و فعال بودن طرح Blaze نیز تابع ارسال Push روی سرور Deploy نمی‌شود. برای وب Push، کلید VAPID لازم است.

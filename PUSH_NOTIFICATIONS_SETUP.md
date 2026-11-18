@@ -1,0 +1,41 @@
+# راه‌اندازی اعلان‌های واقعی هماهنگی
+
+## قابلیت‌هایی که در کد آماده شده‌اند
+- یادآوری زمان‌دار اندروید با Local Notifications؛ پس از زمان‌بندی، سیستم‌عامل حتی با بسته بودن برنامه اعلان را نمایش می‌دهد.
+- ثبت توکن FCM هر دستگاه در مسیر خصوصی `users/{uid}/fcmTokens`.
+- ارسال Push سمت سرور با Cloud Function هنگام ایجاد سند اعلان در `users/{uid}/notifications/{notificationId}`.
+- اعلان پس‌زمینه وب/PWA از طریق Firebase Messaging Service Worker.
+- حذف توکن‌های منقضی‌شده از Firestore پس از پاسخ FCM.
+
+## تنظیمات لازم در Firebase Console
+پروژه Firebase: `peak-amp-lxjsq`
+
+1. در Project settings > General > Your apps، یک Android app با package name دقیق `ir.hamahangi.app` ثبت کنید.
+2. فایل `google-services.json` همان Android app را دانلود کنید. این فایل را در مخزن عمومی قرار ندهید.
+3. در Firebase Console > Project settings > Cloud Messaging، کلید Web Push certificates (VAPID) بسازید/کپی کنید.
+4. برای Cloud Functions، پروژه باید روی طرح Blaze باشد و سرویس‌های موردنیاز Google Cloud فعال باشند.
+5. یک Service Account با دسترسی لازم برای Deploy Functions (از جمله Cloud Functions Admin، Service Account User و Firebase Admin در صورت نیاز) بسازید.
+
+## GitHub repository secrets
+در Settings > Secrets and variables > Actions این Secretها را اضافه کنید:
+
+- `FIREBASE_SERVICE_ACCOUNT`: کل JSON کامل کلید Service Account؛ برای Deploy تابع سرور.
+- `FIREBASE_VAPID_KEY`: کلید عمومی VAPID؛ برای ساخت نسخه وب/PWA.
+- `GOOGLE_SERVICES_JSON_BASE64`: محتوای فایل google-services.json به صورت Base64؛ برای تزریق امن به ساخت APK اندروید.
+
+برای تولید مقدار Base64 فایل اندروید در PowerShell:
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json"))
+```
+
+پس از تنظیم Secretها، Workflow ساخت Android را دوباره اجرا کنید. Workflow جداگانه Deploy Functions نیز پس از Merge شدن کد به main یا با اجرای دستی قابل اجراست.
+
+## محدودیت مهم
+تا پیش از ثبت اپ اندروید در Firebase و قراردادن `GOOGLE_SERVICES_JSON_BASE64`، APK ساخته می‌شود و یادآوری‌های محلی اندروید کار می‌کنند، اما ثبت توکن FCM بومی و Push اندروید فعال نخواهد شد. تا پیش از قراردادن `FIREBASE_SERVICE_ACCOUNT` و فعال بودن طرح Blaze نیز تابع ارسال Push روی سرور Deploy نمی‌شود. برای وب Push، کلید VAPID لازم است.
+
+## آزمون انتها به انتها
+1. APK جدید را نصب کنید و با حساب گوگل وارد شوید.
+2. در اعلان‌ها، مجوز اعلان را فعال کنید.
+3. یک جلسه آزمایشی با یادآوری ۵ دقیقه‌ای برای چند دقیقه بعد ثبت کنید.
+4. برنامه را کامل ببندید و منتظر اعلان زمان‌دار بمانید.
+5. از حساب دیگری در همان گروه یک اعلان ایجاد کنید و دریافت Push روی دستگاه دوم را بررسی کنید.

@@ -18,6 +18,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,14 +32,13 @@ jobs:
         working-directory: functions
         run: npm run lint
       - name: Authenticate to Google Cloud
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
         run: |
-          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "::error::Add FIREBASE_SERVICE_ACCOUNT repository secret before deploying Cloud Functions."
-            exit 1
-          fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
-      - name: Deploy notification function
+      - name: Deploy notification function and Firestore rules
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
         run: npx --yes firebase-tools deploy --only firestore:ai-studio-hamahangi-ac566711-0b2e-48f6-b737-0db9ea92d2f8,functions --project peak-amp-lxjsq --non-interactive
+      - name: Skip deployment until credentials are configured
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: echo "::warning::Add FIREBASE_SERVICE_ACCOUNT to repository Actions secrets, then run this workflow again to deploy FCM and Firestore rules."

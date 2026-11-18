@@ -25,6 +25,10 @@ import {
   NotificationPermissionState,
   requestNotificationPermission,
   showDeviceNotification,
+  isNativePlatform,
+  setupDevicePush,
+  enableRemotePush,
+  scheduleNativeReminders,
 } from '../lib/notifications';
 import { getTodayJalaliStr, toPersianDigits } from '../lib/jalali';
 
@@ -124,8 +128,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const enableDeviceNotifications = useCallback(async () => {
     const res = await requestNotificationPermission();
     setNotifPermission(res);
+    if (res === 'granted' && user) {
+      const pushReady = await enableRemotePush(user.uid);
+      if (!pushReady) {
+        console.warn('Remote push is not fully configured; local Android reminders remain available.');
+      }
+    }
     return res;
-  }, []);
+  }, [user]);
 
   const dismissLiveToast = useCallback(() => {
     setLiveToast(null);
@@ -158,6 +168,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     return () => unsub();
   }, []);
+
+  // Register FCM listeners for this signed-in device. Permission is requested only after user action.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    void setupDevicePush(user.uid)
+      .then((dispose) => {
+        if (cancelled) dispose();
+        else cleanup = dispose;
+      })
+      .catch((error) => console.error('Push listener setup failed', error));
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [user]);
 
   // User profile, memberships, notifications, invites listeners
   useEffect(() => {
@@ -216,7 +243,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               body: latest.body,
               itemId: latest.itemId,
             });
-            showDeviceNotification(latest.title, latest.body, latest.id);
+            if (!isNativePlatform()) {
+              void showDeviceNotification(latest.title, latest.body, latest.id);
+            }
           }
         }
       },
@@ -320,6 +349,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Background meeting reminder checker (every 45s)
   useEffect(() => {
+    if (isNativePlatform()) {
+      void scheduleNativeReminders(user ? items : []);
+      return;
+    }
     if (!user || items.length === 0) return;
 
     const checkReminders = () => {

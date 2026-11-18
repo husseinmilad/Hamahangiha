@@ -111,7 +111,7 @@ export async function setupDevicePush(userId: string): Promise<() => void> {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && await isSupported()) {
       const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
       if (vapidKey) {
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const registration = await navigator.serviceWorker.register('/firebase-messaging/firebase-messaging-sw.js', { scope: '/firebase-messaging/' });
         const messaging = getMessaging(getApp());
         const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
         if (token) await savePushToken(userId, token, 'web');

@@ -30,7 +30,6 @@ exports.sendUserNotificationPush = onDocumentCreated(
     const title = String(notification.title || 'اعلان جدید هماهنگی').slice(0, 160);
     const body = String(notification.body || '').slice(0, 500);
     const payload = {
-      notification: { title, body },
       data: {
         notificationId: String(notificationId),
         itemId: String(notification.itemId || ''),
@@ -51,14 +50,11 @@ exports.sendUserNotificationPush = onDocumentCreated(
           body,
           icon: '/pwa-192x192.png',
           badge: '/pwa-192x192.png',
-          dir: 'rtl',
-          lang: 'fa',
           tag: String(notificationId),
-          renotify: true,
         },
       },
       apns: {
-        payload: { aps: { sound: 'default' } },
+        payload: { aps: { alert: { title, body }, sound: 'default' } },
       },
     };
 

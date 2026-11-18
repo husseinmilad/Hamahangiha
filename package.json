@@ -20,7 +20,9 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "@capacitor/core": "^7.4.3",
-    "@capacitor/android": "^7.4.3"
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/local-notifications": "^7.0.2",
+    "@capacitor/push-notifications": "^7.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.26.0",

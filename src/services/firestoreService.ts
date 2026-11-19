@@ -153,7 +153,7 @@ export async function saveWorkspaceItem(
   const name = clampStr(currentUser.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
   const payload = itemPayload(workspace, currentUser, input);
   if (existingItem) {
-    const { workspace_id: _workspaceId, ...updatePayload } = payload;
+    const updatePayload = Object.fromEntries(Object.entries(payload).filter(([key]) => key !== 'workspace_id'));
     const { error } = await supabase.from('workspace_items').update(updatePayload).eq('id', id).eq('workspace_id', workspace.id);
     throwIfError(error);
   } else {
@@ -191,15 +191,13 @@ export async function updateItemStatus(workspace: Workspace, members: WorkspaceM
     })));
   }
 }
-export async function respondToItemAttendance(workspace: Workspace, members: WorkspaceMember[], user: AppUser, item: WorkspaceItem, response: 'accepted' | 'declined'): Promise<void> {
-  const confirmed = new Set(item.confirmedUids || []), declined = new Set(item.declinedUids || []);
-  if (response === 'accepted') { confirmed.add(user.uid); declined.delete(user.uid); }
-  else { declined.add(user.uid); confirmed.delete(user.uid); }
-  const { error } = await supabase.from('workspace_items').update({
-    confirmed_uids: Array.from(confirmed).slice(0, SCHEMA_LIMITS.UID_LIST_MAX),
-    declined_uids: Array.from(declined).slice(0, SCHEMA_LIMITS.UID_LIST_MAX),
-    updated_at: new Date().toISOString(),
-  }).eq('id', item.id).eq('workspace_id', workspace.id);
+export async function respondToItemAttendance(
+  workspace: Workspace, members: WorkspaceMember[], user: AppUser,
+  item: WorkspaceItem, response: 'accepted' | 'declined'
+): Promise<void> {
+  const { error } = await supabase.rpc('respond_to_workspace_item', {
+    p_workspace_id: workspace.id, p_item_id: item.id, p_response: response,
+  });
   throwIfError(error);
   if (item.createdByUid !== user.uid && members.some(m => m.uid === item.createdByUid)) {
     await insertNotification({

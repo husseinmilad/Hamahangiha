@@ -19,6 +19,7 @@ import {
   deleteWorkspace,
   updateWorkspace,
   fetchWorkspacePermissionMatrix,
+  checkWorkspacePermission,
   saveWorkspaceRolePermission,
   WORKSPACE_PERMISSION_OPTIONS,
   DEFAULT_WORKSPACE_PERMISSION_MATRIX,
@@ -64,11 +65,12 @@ export const TeamWorkspaceView: React.FC = () => {
   const [permissionRole, setPermissionRole] = useState<ConfigurableWorkspaceRole>('executive');
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [canInviteMembers, setCanInviteMembers] = useState(false);
+  const [canManageMembers, setCanManageMembers] = useState(false);
+  const [canEditWorkspace, setCanEditWorkspace] = useState(false);
 
   const isOwner = Boolean(user && activeWorkspace?.ownerUid === user.uid);
-  const isOwnerOrAdmin = Boolean(user && members.some(
-    (m) => m.uid === user.uid && (m.role === 'owner' || m.role === 'executive' || m.role === 'coordinator')
-  ));
+  const isOwnerOrAdmin = isOwner || canManageMembers;
 
   useEffect(() => {
     if (!activeWorkspace || !isOwner) return;
@@ -80,6 +82,25 @@ export const TeamWorkspaceView: React.FC = () => {
       .finally(() => { if (alive) setPermissionsLoading(false); });
     return () => { alive = false; };
   }, [activeWorkspace?.id, isOwner]);
+
+  useEffect(() => {
+    if (!activeWorkspace || !user) {
+      setCanInviteMembers(false); setCanManageMembers(false); setCanEditWorkspace(false);
+      return;
+    }
+    let alive = true;
+    Promise.all([
+      checkWorkspacePermission(activeWorkspace.id, 'invite_members'),
+      checkWorkspacePermission(activeWorkspace.id, 'manage_members'),
+      checkWorkspacePermission(activeWorkspace.id, 'edit_workspace'),
+    ]).then(([invite, manage, edit]) => {
+      if (!alive) return;
+      setCanInviteMembers(invite); setCanManageMembers(manage); setCanEditWorkspace(edit);
+    }).catch(() => {
+      if (alive) { setCanInviteMembers(false); setCanManageMembers(false); setCanEditWorkspace(false); }
+    });
+    return () => { alive = false; };
+  }, [activeWorkspace?.id, user?.uid]);
 
   if (!user) return null;
 
@@ -318,7 +339,7 @@ export const TeamWorkspaceView: React.FC = () => {
         </div>
       )}
 
-      {activeWorkspace && isOwner && (
+      {activeWorkspace && (isOwner || canEditWorkspace) && (
         <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -333,10 +354,10 @@ export const TeamWorkspaceView: React.FC = () => {
               }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold">
                 <Edit3 className="w-3.5 h-3.5" /> ویرایش گروه
               </button>
-              <button type="button" disabled={workspaceBusy} onClick={handleDeleteWorkspace}
+              {isOwner && <button type="button" disabled={workspaceBusy} onClick={handleDeleteWorkspace}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-600 px-3 py-2 text-xs font-semibold disabled:opacity-50">
                 <Trash2 className="w-3.5 h-3.5" /> حذف گروه
-              </button>
+              </button>}
             </div>
           </div>
           {workspaceError && <p role="alert" className="text-xs text-red-600">{workspaceError}</p>}
@@ -354,7 +375,7 @@ export const TeamWorkspaceView: React.FC = () => {
               </div>
             </form>
           )}
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
+          {isOwner && <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">تنظیم دسترسی نقش‌ها</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">مالک گروه می‌تواند مشخص کند هر نقش چه عملیاتی انجام دهد. دسترسی مالک قابل تغییر نیست.</p>
@@ -387,7 +408,7 @@ export const TeamWorkspaceView: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
         </section>
       )}
 
@@ -455,9 +476,10 @@ export const TeamWorkspaceView: React.FC = () => {
                 </select>
               </div>
 
+              {!canInviteMembers && <p className="text-xs text-amber-700 dark:text-amber-300">برای نقش شما مجوز دعوت همکار فعال نیست.</p>}
               <button
                 type="submit"
-                disabled={inviting}
+                disabled={inviting || !canInviteMembers}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-3 px-4 text-xs font-bold transition-colors min-h-[46px]"
               >
                 {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -528,7 +550,7 @@ export const TeamWorkspaceView: React.FC = () => {
                         </span>
                       )}
 
-                      {isOwner && m.uid !== user.uid && (
+                      {canManageMembers && m.role !== 'owner' && m.uid !== user.uid && (
                         <button
                           onClick={() => removeWorkspaceMember(activeWorkspace.id, m.uid)}
                           className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 min-h-[36px] min-w-[36px] flex items-center justify-center"

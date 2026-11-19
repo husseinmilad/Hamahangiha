@@ -15,6 +15,7 @@ interface AppContextValue {
   profile: UserProfile | null; memberships: UserMembership[]; activeWorkspaceId: string | null;
   setActiveWorkspaceId: (id: string) => void; activeWorkspace: Workspace | null;
   members: WorkspaceMember[]; items: WorkspaceItem[]; itemsLoading: boolean;
+  removeItemLocally: (itemId: string) => void;
   notifications: UserNotification[]; unreadCount: number;
   incomingInvites: WorkspaceInvite[]; outgoingInvites: WorkspaceInvite[];
   activeTab: ActiveTab; setActiveTab: (tab: ActiveTab) => void;
@@ -101,6 +102,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const seenNotifIdsRef = useRef<Set<string>>(new Set());
   const initialNotifBatchRef = useRef(true);
   const firedReminderKeysRef = useRef<Set<string>>(new Set());
+
+  const removeItemLocally = useCallback((itemId: string) => {
+    setItems(current => current.filter(item => item.id !== itemId));
+  }, []);
 
   const setActiveWorkspaceId = useCallback((id: string | null) => {
     setActiveWorkspaceIdState(id || null);
@@ -321,7 +326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length + incomingInvites.length, [notifications, incomingInvites]);
   const value: AppContextValue = {
     user, authReady, authLoading, authError, profile, memberships, activeWorkspaceId,
-    setActiveWorkspaceId, activeWorkspace, members, items, itemsLoading, notifications,
+    setActiveWorkspaceId, activeWorkspace, members, items, itemsLoading, removeItemLocally, notifications,
     unreadCount, incomingInvites, outgoingInvites, activeTab, setActiveTab, theme, toggleTheme,
     notifPermission, enableDeviceNotifications, liveToast, dismissLiveToast,
     signInWithEmail, signUpWithEmail, resetPassword, updatePassword, passwordRecovery, signOutUser,

@@ -103,7 +103,7 @@ begin
   if v_target_role = 'owner' then raise exception 'Owner cannot be removed'; end if;
 
   if coalesce(v_actor_role, 'member'::public.workspace_role) not in ('owner', 'executive')
-     and not (v_actor_role = 'coordinator' and v_target_role = 'member') then
+     and not (coalesce(v_actor_role, 'member'::public.workspace_role) = 'coordinator' and v_target_role = 'member') then
     raise exception 'Insufficient permission';
   end if;
 
@@ -116,8 +116,6 @@ revoke all on function public.update_workspace_member_role(text, uuid, public.wo
 revoke all on function public.remove_workspace_member(text, uuid) from public;
 grant execute on function public.update_workspace_member_role(text, uuid, public.workspace_role) to authenticated;
 grant execute on function public.remove_workspace_member(text, uuid) to authenticated;
-
-commit;
 
 
 -- Members may respond to attendance without receiving broad UPDATE rights on items.
@@ -160,3 +158,5 @@ $$;
 
 revoke all on function public.respond_to_workspace_item(text, text, text) from public;
 grant execute on function public.respond_to_workspace_item(text, text, text) to authenticated;
+
+commit;

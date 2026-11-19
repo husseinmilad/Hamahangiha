@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRelativeTimePersian, toPersianDigits } from '../lib/jalali';
-import { deleteNotification, markNotificationRead } from '../services/firestoreService';
+import { deleteNotification, markNotificationRead } from '../services/supabaseService';
 import { showDeviceNotification } from '../lib/notifications';
 import { PWAInstallButton } from './PWAInstallButton';
 

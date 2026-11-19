@@ -2,7 +2,7 @@ name: Validate and build Android APK
 
 on:
   push:
-    branches: [main, chore/prepare-build-android-ci]
+    branches: [main, feat/supabase-email-password-migration]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -13,69 +13,36 @@ permissions:
 jobs:
   validate-and-build:
     runs-on: ubuntu-latest
-    env:
-      GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-      ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
     timeout-minutes: 30
+    env:
+      VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://cyufuqdfalkpotjlxkhu.supabase.co' }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
+          cache: npm
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Type check
         run: npm run typecheck
-
       - name: Lint
         run: npm run lint
-
-      - name: Validate Firebase worker and Cloud Function syntax
-        run: |
-          node --check public/firebase-messaging/firebase-messaging-sw.js
-          node --check functions/index.js
-
-      - name: Firestore security rules tests
-        run: npm run test:rules
-
       - name: Build web app
-        env:
-          VITE_FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
         run: npm run build
-
       - name: Generate Android project
         run: npx cap add android
-
       - name: Sync Capacitor
         run: npx cap sync android
-
-      - name: Configure native Google Credential Manager
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path("android/variables.gradle")
-          content = path.read_text()
-          if "rgcfaIncludeGoogle" not in content:
-              content = content.replace(
-                  "ext {",
-                  "ext {\n    rgcfaIncludeGoogle = true\n    androidxCredentialsVersion = '1.3.0'",
-                  1,
-              )
-              path.write_text(content)
-          PY
-
-      - name: Add Android scheduled-alarm permissions
+      - name: Add Android local notification permissions
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -87,48 +54,18 @@ jobs:
           ]
           for permission in permissions:
               if permission not in content:
-                  content = content.replace("<application", permission + "\n    <application", 1)
+                  content = content.replace("<application", permission + "\\n    <application", 1)
           path.write_text(content)
           PY
-
-      - name: Install stable Android debug signing key (optional)
-        if: env.ANDROID_DEBUG_KEYSTORE_BASE64 != ''
-        run: |
-          mkdir -p "$HOME/.android"
-          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
-
-      - name: Configure Firebase Android app (optional)
-        if: env.GOOGLE_SERVICES_JSON_BASE64 != ''
-        run: |
-          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
-          grep -q 'com.google.gms:google-services' android/build.gradle || \
-            sed -i '/dependencies {/a\        classpath "com.google.gms:google-services:4.4.2"' android/build.gradle
-          grep -q 'com.google.gms.google-services' android/app/build.gradle || \
-            printf '\napply plugin: "com.google.gms.google-services"\n' >> android/app/build.gradle
-
       - name: Build debug APK
         working-directory: android
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
-
-      - name: Show Android signing SHA-1
-        if: always()
-        run: |
-          if [ -f "$HOME/.android/debug.keystore" ]; then
-            keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null | grep -E 'SHA1:|SHA-1:' || true
-          fi
-          APK="android/app/build/outputs/apk/debug/app-debug.apk"
-          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          APKSIGNER="$(find "$SDK/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
-          if [ -f "$APK" ] && [ -n "$APKSIGNER" ]; then
-            "$APKSIGNER" verify --print-certs "$APK" | grep -i 'SHA-1'
-          fi
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: hamahangi-debug-apk
+          name: hamahangi-supabase-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

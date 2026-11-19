@@ -101,7 +101,7 @@ export interface SaveItemInput {
   assigneeUid: string; agenda: string; minutes: string; checklist: ChecklistItem[];
   notifyMembers: boolean; reminderMinutes: number;
 }
-function itemPayload(workspace: Workspace, user: AppUser, input: SaveItemInput) {
+function itemPayload(workspace: Workspace, input: SaveItemInput) {
   return {
     workspace_id: workspace.id, type: input.type,
     title: clampStr(input.title, SCHEMA_LIMITS.TITLE_MAX),
@@ -149,7 +149,7 @@ export async function saveWorkspaceItem(
   const id = existingItem?.id ?? generateSafeId('itm');
   const email = clampStr(currentUser.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
   const name = clampStr(currentUser.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
-  const payload = itemPayload(workspace, currentUser, input);
+  const payload = itemPayload(workspace, input);
   if (existingItem) {
     const updatePayload = Object.fromEntries(Object.entries(payload).filter(([key]) => key !== 'workspace_id'));
     const { error } = await supabase.from('workspace_items').update(updatePayload).eq('id', id).eq('workspace_id', workspace.id);

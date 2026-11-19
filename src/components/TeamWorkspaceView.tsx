@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Check,
   Copy,
+  Edit3,
   Loader2,
   Mail,
   Plus,
@@ -15,6 +16,8 @@ import { useApp } from '../context/AppContext';
 import {
   acceptWorkspaceInvite,
   createWorkspace,
+  deleteWorkspace,
+  updateWorkspace,
   declineWorkspaceInvite,
   getRoleDisplayLabel,
   inviteMemberByEmail,
@@ -47,6 +50,11 @@ export const TeamWorkspaceView: React.FC = () => {
   const [newWsName, setNewWsName] = useState('');
   const [newWsDesc, setNewWsDesc] = useState('');
   const [creatingWs, setCreatingWs] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState(false);
+  const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
+  const [workspaceDescDraft, setWorkspaceDescDraft] = useState('');
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   if (!user) return null;
 
@@ -100,6 +108,32 @@ export const TeamWorkspaceView: React.FC = () => {
     } finally {
       setCreatingWs(false);
     }
+  };
+
+  const handleUpdateWorkspace = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeWorkspace || !user || !workspaceNameDraft.trim()) return;
+    setWorkspaceBusy(true); setWorkspaceError(null);
+    try {
+      await updateWorkspace(activeWorkspace.id, user.uid, workspaceNameDraft.trim(), workspaceDescDraft.trim());
+      setEditingWorkspace(false);
+    } catch (err) {
+      setWorkspaceError(err instanceof Error ? err.message : 'ویرایش گروه انجام نشد.');
+    } finally { setWorkspaceBusy(false); }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!activeWorkspace || !user) return;
+    if (!window.confirm(`گروه «${activeWorkspace.name}» و تمام کارها، جلسات و اعضای آن حذف شود؟ این کار برگشت‌پذیر نیست.`)) return;
+    setWorkspaceBusy(true); setWorkspaceError(null);
+    try {
+      await deleteWorkspace(activeWorkspace.id, user.uid);
+      const next = memberships.find(m => m.workspaceId !== activeWorkspace.id);
+      setActiveWorkspaceId(next?.workspaceId || '');
+      setEditingWorkspace(false);
+    } catch (err) {
+      setWorkspaceError(err instanceof Error ? err.message : 'حذف گروه انجام نشد.');
+    } finally { setWorkspaceBusy(false); }
   };
 
   const handleCopyInviteText = async (invId: string, wsName: string, email: string) => {
@@ -251,6 +285,45 @@ export const TeamWorkspaceView: React.FC = () => {
             </button>
           ))}
         </div>
+      )}
+
+      {activeWorkspace && isOwner && (
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">مدیریت گروه کاری</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">این بخش فقط برای مالک گروه قابل مشاهده است.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => {
+                setWorkspaceNameDraft(activeWorkspace.name);
+                setWorkspaceDescDraft(activeWorkspace.description || '');
+                setWorkspaceError(null); setEditingWorkspace(v => !v);
+              }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold">
+                <Edit3 className="w-3.5 h-3.5" /> ویرایش گروه
+              </button>
+              <button type="button" disabled={workspaceBusy} onClick={handleDeleteWorkspace}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-600 px-3 py-2 text-xs font-semibold disabled:opacity-50">
+                <Trash2 className="w-3.5 h-3.5" /> حذف گروه
+              </button>
+            </div>
+          </div>
+          {workspaceError && <p role="alert" className="text-xs text-red-600">{workspaceError}</p>}
+          {editingWorkspace && (
+            <form onSubmit={handleUpdateWorkspace} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input required maxLength={SCHEMA_LIMITS.NAME_MAX} value={workspaceNameDraft}
+                onChange={e => setWorkspaceNameDraft(e.target.value)} placeholder="نام گروه"
+                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[42px]" />
+              <input maxLength={SCHEMA_LIMITS.WORKSPACE_DESC_MAX} value={workspaceDescDraft}
+                onChange={e => setWorkspaceDescDraft(e.target.value)} placeholder="توضیحات گروه"
+                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm min-h-[42px]" />
+              <div className="sm:col-span-2 flex gap-2">
+                <button disabled={workspaceBusy} type="submit" className="rounded-lg bg-blue-600 text-white px-4 py-2 text-xs font-bold disabled:opacity-50">{workspaceBusy ? 'در حال ذخیره...' : 'ذخیره تغییرات'}</button>
+                <button type="button" onClick={() => setEditingWorkspace(false)} className="rounded-lg px-4 py-2 text-xs">انصراف</button>
+              </div>
+            </form>
+          )}
+        </section>
       )}
 
       {activeWorkspace && (

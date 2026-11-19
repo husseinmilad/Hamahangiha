@@ -165,7 +165,7 @@ $$;
 create or replace function public.create_workspace(p_id text, p_name text, p_description text default '')
 returns text
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -190,7 +190,7 @@ $$;
 create or replace function public.accept_workspace_invite(p_invite_id text)
 returns void
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare

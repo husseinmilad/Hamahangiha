@@ -2,7 +2,7 @@ name: Validate and build Android APK
 
 on:
   push:
-    branches: [main, chore/prepare-build-android-ci]
+    branches: [main, '**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -16,6 +16,7 @@ jobs:
     env:
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
       ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+      PUSHE_MANIFEST_TOKEN: ${{ secrets.PUSHE_MANIFEST_TOKEN }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -49,37 +50,84 @@ jobs:
       - name: Firestore security rules tests
         run: npm run test:rules
 
-      - name: Build web app
-        env:
-          VITE_FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
-        run: npm run build
+      - name: Build native web bundle without PWA service worker
+        run: |
+          npm run build -- --mode native
+          test ! -f dist/sw.js
+          test ! -f dist/registerSW.js
 
       - name: Generate Android project
         run: npx cap add android
 
-      - name: Sync Capacitor
+      - name: Sync Capacitor native plugins
         run: npx cap sync android
+
+      - name: Verify Firebase Authentication native plugin registration
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          plugin_file = Path('android/app/src/main/assets/capacitor.plugins.json')
+          if not plugin_file.is_file():
+              raise SystemExit('Missing capacitor.plugins.json: native plugin registry was not generated.')
+
+          plugins = json.loads(plugin_file.read_text())
+          names = json.dumps(plugins)
+          if 'FirebaseAuthentication' not in names and 'firebase-authentication' not in names:
+              raise SystemExit('Firebase Authentication plugin is absent from the generated Android plugin registry.')
+
+          gradle_files = [
+              Path('android/capacitor.settings.gradle'),
+              Path('android/settings.gradle'),
+          ]
+          gradle_text = '\n'.join(p.read_text() for p in gradle_files if p.is_file())
+          if 'authentication' not in gradle_text.lower():
+              raise SystemExit('Firebase Authentication Android Gradle project was not included.')
+
+          print('Verified Firebase Authentication in Android plugin registry and Gradle settings.')
+          PY
 
       - name: Configure native Google Credential Manager
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("android/variables.gradle")
+          path = Path('android/variables.gradle')
           content = path.read_text()
-          if "rgcfaIncludeGoogle" not in content:
+          if 'rgcfaIncludeGoogle' not in content:
               content = content.replace(
-                  "ext {",
+                  'ext {',
                   "ext {\n    rgcfaIncludeGoogle = true\n    androidxCredentialsVersion = '1.3.0'",
                   1,
               )
               path.write_text(content)
           PY
 
+      - name: Configure Pushe Android SDK (when credentials are available)
+        if: env.PUSHE_MANIFEST_TOKEN != ''
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          gradle = Path('android/app/build.gradle')
+          content = gradle.read_text()
+          dependency = '    implementation("co.pushe.plus:base:2.6.3")'
+          if dependency not in content:
+              content = content.replace('dependencies {', 'dependencies {\n' + dependency, 1)
+          gradle.write_text(content)
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          xml = manifest.read_text()
+          meta = '        <meta-data android:name="pushe_token" android:value="' + os.environ['PUSHE_MANIFEST_TOKEN'] + '" />'
+          if 'android:name="pushe_token"' not in xml:
+              xml = xml.replace('</application>', meta + '\n    </application>', 1)
+          manifest.write_text(xml)
+          PY
+
       - name: Add Android scheduled-alarm permissions
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("android/app/src/main/AndroidManifest.xml")
+          path = Path('android/app/src/main/AndroidManifest.xml')
           content = path.read_text()
           permissions = [
               '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />',
@@ -87,7 +135,7 @@ jobs:
           ]
           for permission in permissions:
               if permission not in content:
-                  content = content.replace("<application", permission + "\n    <application", 1)
+                  content = content.replace('<application', permission + '\n    <application', 1)
           path.write_text(content)
           PY
 
@@ -110,7 +158,7 @@ jobs:
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew clean assembleDebug --no-daemon
 
       - name: Show Android signing SHA-1
         if: always()

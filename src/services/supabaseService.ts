@@ -47,6 +47,21 @@ export async function createWorkspace(_user: AppUser, name: string, description:
   throwIfError(error);
   return (data as string) || id;
 }
+export async function updateWorkspace(workspaceId: string, ownerUid: string, name: string, description: string): Promise<void> {
+  const { data, error } = await supabase.from('workspaces').update({
+    name: clampStr(name, SCHEMA_LIMITS.NAME_MAX),
+    description: clampStr(description, SCHEMA_LIMITS.WORKSPACE_DESC_MAX),
+    updated_at: new Date().toISOString(),
+  }).eq('id', workspaceId).eq('owner_uid', ownerUid).select('id').maybeSingle();
+  throwIfError(error);
+  if (!data?.id) throw new Error('ویرایش گروه انجام نشد؛ فقط مالک گروه می‌تواند آن را ویرایش کند.');
+}
+export async function deleteWorkspace(workspaceId: string, ownerUid: string): Promise<void> {
+  const { data, error } = await supabase.from('workspaces').delete()
+    .eq('id', workspaceId).eq('owner_uid', ownerUid).select('id').maybeSingle();
+  throwIfError(error);
+  if (!data?.id) throw new Error('حذف گروه انجام نشد؛ فقط مالک گروه می‌تواند آن را حذف کند.');
+}
 export async function inviteMemberByEmail(
   workspace: Workspace, inviter: AppUser, invitedEmailRaw: string,
   role: 'executive' | 'coordinator' | 'member'

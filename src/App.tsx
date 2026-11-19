@@ -267,7 +267,7 @@ const MainShell: React.FC = () => {
               )}
               {activeTab === 'team' && <TeamWorkspaceView />}
               {activeTab === 'notifications' && (
-                <NotificationsView onOpenItemById={(id) => setSelectedItemId(id)} />
+                <NotificationsView />
               )}
             </>
           )}

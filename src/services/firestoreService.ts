@@ -102,8 +102,6 @@ export interface SaveItemInput {
   notifyMembers: boolean; reminderMinutes: number;
 }
 function itemPayload(workspace: Workspace, user: AppUser, input: SaveItemInput) {
-  const email = clampStr(user.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-  const name = clampStr(user.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
   return {
     workspace_id: workspace.id, type: input.type,
     title: clampStr(input.title, SCHEMA_LIMITS.TITLE_MAX),

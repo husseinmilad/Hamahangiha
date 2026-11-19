@@ -43,6 +43,7 @@ const MainShell: React.FC = () => {
     theme,
     toggleTheme,
     signOutUser,
+    passwordRecovery,
   } = useApp();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -66,6 +67,8 @@ const MainShell: React.FC = () => {
       </div>
     );
   }
+
+  if (passwordRecovery) return <LoginScreen />;
 
   if (!user) {
     return <LoginScreen />;

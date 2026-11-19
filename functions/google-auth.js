@@ -1,10 +1,9 @@
-const { initializeApp } = require('firebase-admin/app');
+const { getApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { OAuth2Client } = require('google-auth-library');
 
-initializeApp();
 
 const googleClientId = defineSecret('GOOGLE_WEB_CLIENT_ID');
 const verifier = new OAuth2Client();

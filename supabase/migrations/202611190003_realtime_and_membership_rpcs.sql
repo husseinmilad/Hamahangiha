@@ -64,8 +64,7 @@ begin
   if v_target_role is null then raise exception 'Member not found'; end if;
   if v_target_role = 'owner' then raise exception 'Owner role is protected'; end if;
 
-  if v_actor_role not in ('owner', 'executive')
-     and not (v_actor_role = 'coordinator' and p_role = 'member' and v_target_role = 'member') then
+  if v_actor_role not in ('owner', 'executive') then
     raise exception 'Insufficient permission';
   end if;
 

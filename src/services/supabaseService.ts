@@ -62,6 +62,13 @@ export const DEFAULT_WORKSPACE_PERMISSION_MATRIX: WorkspacePermissionMatrix = {
   coordinator: { manage_items: true, delete_items: true, invite_members: true, manage_members: false, edit_workspace: false },
   member: { manage_items: false, delete_items: false, invite_members: false, manage_members: false, edit_workspace: false },
 };
+export async function checkWorkspacePermission(workspaceId: string, permissionKey: WorkspacePermissionKey): Promise<boolean> {
+  const { data, error } = await supabase.rpc('has_workspace_permission', {
+    p_workspace_id: workspaceId, p_permission_key: permissionKey,
+  });
+  throwIfError(error);
+  return data === true;
+}
 export async function fetchWorkspacePermissionMatrix(workspaceId: string): Promise<WorkspacePermissionMatrix> {
   const matrix: WorkspacePermissionMatrix = {
     executive: { ...DEFAULT_WORKSPACE_PERMISSION_MATRIX.executive },

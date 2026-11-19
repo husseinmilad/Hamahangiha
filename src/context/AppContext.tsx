@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithCredential, signInWithCustomToken, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
@@ -450,8 +450,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Capacitor.isNativePlatform()) {
         const result = await FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
         const idToken = result.credential?.idToken;
-        if (!idToken) throw new Error('ورود گوگل توکن معتبر برنگرداند؛ تنظیمات Firebase Android را بررسی کنید.');
-        await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+        if (!idToken) throw new Error('گوگل توکن معتبر برنگرداند. دوباره تلاش کنید.');
+        const endpoint = import.meta.env.VITE_GOOGLE_AUTH_ENDPOINT ||
+          'https://us-central1-peak-amp-lxjsq.cloudfunctions.net/googleAuthExchange';
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ idToken }),
+        });
+        if (!response.ok) throw new Error('اعتبارسنجی حساب گوگل انجام نشد. اتصال اینترنت را بررسی کنید.');
+        const payload = await response.json() as { customToken?: string };
+        if (!payload.customToken) throw new Error('سرور توکن ورود معتبری صادر نکرد.');
+        await signInWithCustomToken(auth, payload.customToken);
       } else {
         await signInWithPopup(auth, googleProvider);
       }

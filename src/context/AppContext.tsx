@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row adapters are isolated here; runtime row shape is defined by versioned SQL migrations. */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { AppUser, UserMembership, UserNotification, UserProfile, Workspace, WorkspaceInvite, WorkspaceItem, WorkspaceMember } from '../types/hamahangi';

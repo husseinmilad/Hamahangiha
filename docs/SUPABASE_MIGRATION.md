@@ -23,7 +23,8 @@
 - [x] بازنویسی Context برای Supabase Auth، queryها و Realtime.
 - [x] حذف مسیر FCM از اعلان‌ها و حفظ یادآوری محلی.
 - [ ] اجرای migration سوم در پروژه Supabase.
-- [ ] آزمون build، lint و TypeScript در CI.
+- [x] TypeScript، lint و build وب در GitHub Actions موفق شده‌اند.
+- [ ] ساخت APK پس از افزودن Secret با نام `SUPABASE_PUBLISHABLE_KEY`؛ بدون کلید، مرحله Android عمداً اجرا نمی‌شود.
 - [ ] آزمون واقعی ثبت‌نام/ورود/بازیابی رمز با SMTP.
 - [ ] آزمون دو حساب و نقش‌های مختلف برای RLS، دعوت و تغییر عضویت.
 - [ ] ساخت و نصب APK و آزمون اعلان‌های محلی در Android.

@@ -37,7 +37,7 @@ export async function updateUserDefaultTitle(user: AppUser, defaultTitle: string
   }).eq('id', user.uid);
   throwIfError(error);
 }
-export async function createWorkspace(user: AppUser, name: string, description: string): Promise<string> {
+export async function createWorkspace(_user: AppUser, name: string, description: string): Promise<string> {
   const id = generateSafeId('ws');
   const { data, error } = await supabase.rpc('create_workspace', {
     p_id: id,
@@ -47,7 +47,7 @@ export async function createWorkspace(user: AppUser, name: string, description: 
   throwIfError(error);
   return (data as string) || id;
 }
-export async function inviteMemberByGmail(
+export async function inviteMemberByEmail(
   workspace: Workspace, inviter: AppUser, invitedEmailRaw: string,
   role: 'executive' | 'coordinator' | 'member'
 ): Promise<string> {

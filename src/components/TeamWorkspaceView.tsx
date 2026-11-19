@@ -20,7 +20,7 @@ import {
   inviteMemberByEmail,
   removeWorkspaceMember,
   updateMemberRole,
-} from '../services/firestoreService';
+} from '../services/supabaseService';
 import { SCHEMA_LIMITS } from '../types/hamahangi';
 import { toPersianDigits } from '../lib/jalali';
 

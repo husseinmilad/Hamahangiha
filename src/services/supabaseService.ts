@@ -93,12 +93,12 @@ export async function saveWorkspaceRolePermission(
   }, { onConflict: 'workspace_id,role,permission_key' });
   throwIfError(error);
 }
-export async function updateWorkspace(workspaceId: string, ownerUid: string, name: string, description: string): Promise<void> {
+export async function updateWorkspace(workspaceId: string, name: string, description: string): Promise<void> {
   const { data, error } = await supabase.from('workspaces').update({
     name: clampStr(name, SCHEMA_LIMITS.NAME_MAX),
     description: clampStr(description, SCHEMA_LIMITS.WORKSPACE_DESC_MAX),
     updated_at: new Date().toISOString(),
-  }).eq('id', workspaceId).eq('owner_uid', ownerUid).select('id').maybeSingle();
+  }).eq('id', workspaceId).select('id').maybeSingle();
   throwIfError(error);
   if (!data?.id) throw new Error('ویرایش گروه انجام نشد؛ فقط مالک گروه می‌تواند آن را ویرایش کند.');
 }

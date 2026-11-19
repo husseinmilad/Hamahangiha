@@ -167,7 +167,7 @@ export const TeamWorkspaceView: React.FC = () => {
     if (!activeWorkspace || !user || !workspaceNameDraft.trim()) return;
     setWorkspaceBusy(true); setWorkspaceError(null);
     try {
-      await updateWorkspace(activeWorkspace.id, user.uid, workspaceNameDraft.trim(), workspaceDescDraft.trim());
+      await updateWorkspace(activeWorkspace.id, workspaceNameDraft.trim(), workspaceDescDraft.trim());
       setEditingWorkspace(false);
     } catch (err) {
       setWorkspaceError(err instanceof Error ? err.message : 'ویرایش گروه انجام نشد.');
@@ -344,7 +344,7 @@ export const TeamWorkspaceView: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">مدیریت گروه کاری</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">این بخش فقط برای مالک گروه قابل مشاهده است.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">مالک گروه یا نقشی که مجوز ویرایش گروه دارد، به این بخش دسترسی دارد.</p>
             </div>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => {

@@ -115,7 +115,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="inline-flex items-center gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-3.5 py-2.5 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors min-h-[42px] whitespace-nowrap"
             >
               <UserPlus className="w-4 h-4" />
-              دعوت همکار با جیمیل
+              دعوت همکار با ایمیل
             </button>
           )}
           <button
@@ -353,7 +353,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                اعضای متصل با جیمیل
+                اعضای متصل با ایمیل
               </h3>
               <button
                 onClick={() => setActiveTab('team')}

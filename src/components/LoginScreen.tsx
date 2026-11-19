@@ -53,8 +53,8 @@ export const LoginScreen: React.FC = () => {
             </p>
           </div>
           <div className="divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800">
-            <div className="py-3.5 flex items-start gap-3"><Mail className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" /><div><h2 className="text-sm font-bold">حساب کاربری با ایمیل و رمز عبور</h2><p className="text-xs text-slate-500 mt-0.5">ثبت‌نام و ورود بدون وابستگی به ورود گوگل یا Firebase.</p></div></div>
-            <div className="py-3.5 flex items-start gap-3"><BellRing className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" /><div><h2 className="text-sm font-bold">اعلان‌های درون‌برنامه‌ای و یادآوری دستگاه</h2><p className="text-xs text-slate-500 mt-0.5">همگام‌سازی داده‌ها با Supabase و یادآوری محلی جلسات روی گوشی.</p></div></div>
+            <div className="py-3.5 flex items-start gap-3"><Mail className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" /><div><h2 className="text-sm font-bold">حساب کاربری با ایمیل و رمز عبور</h2></div></div>
+            <div className="py-3.5 flex items-start gap-3"><BellRing className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" /><div><h2 className="text-sm font-bold">قابلیت اعلان‌های لحظه‌ای و یادآوری</h2></div></div>
             <div className="py-3.5 flex items-start gap-3"><CalendarDays className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" /><div><h2 className="text-sm font-bold">تقویم شمسی و مدیریت گروه</h2><p className="text-xs text-slate-500 mt-0.5">ثبت جلسات، کارها و پیگیری‌ها در یک فضای مشترک.</p></div></div>
           </div>
           <form onSubmit={submit} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3 shadow-sm">

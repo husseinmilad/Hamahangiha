@@ -47,6 +47,45 @@ export async function createWorkspace(_user: AppUser, name: string, description:
   throwIfError(error);
   return (data as string) || id;
 }
+export type ConfigurableWorkspaceRole = 'executive' | 'coordinator' | 'member';
+export type WorkspacePermissionKey = 'manage_items' | 'delete_items' | 'invite_members' | 'manage_members' | 'edit_workspace';
+export type WorkspacePermissionMatrix = Record<ConfigurableWorkspaceRole, Record<WorkspacePermissionKey, boolean>>;
+export const WORKSPACE_PERMISSION_OPTIONS: { key: WorkspacePermissionKey; label: string; description: string }[] = [
+  { key: 'manage_items', label: 'ثبت و ویرایش کارها و جلسات', description: 'ایجاد و تغییر موارد گروه' },
+  { key: 'delete_items', label: 'حذف کارها و جلسات', description: 'حذف موارد ثبت‌شده' },
+  { key: 'invite_members', label: 'دعوت همکاران', description: 'ارسال دعوت‌نامه برای اعضای جدید' },
+  { key: 'manage_members', label: 'مدیریت اعضا و نقش‌ها', description: 'تغییر نقش یا حذف اعضا' },
+  { key: 'edit_workspace', label: 'ویرایش مشخصات گروه', description: 'تغییر نام و توضیحات گروه' },
+];
+export const DEFAULT_WORKSPACE_PERMISSION_MATRIX: WorkspacePermissionMatrix = {
+  executive: { manage_items: true, delete_items: true, invite_members: true, manage_members: true, edit_workspace: false },
+  coordinator: { manage_items: true, delete_items: true, invite_members: true, manage_members: false, edit_workspace: false },
+  member: { manage_items: false, delete_items: false, invite_members: false, manage_members: false, edit_workspace: false },
+};
+export async function fetchWorkspacePermissionMatrix(workspaceId: string): Promise<WorkspacePermissionMatrix> {
+  const matrix: WorkspacePermissionMatrix = {
+    executive: { ...DEFAULT_WORKSPACE_PERMISSION_MATRIX.executive },
+    coordinator: { ...DEFAULT_WORKSPACE_PERMISSION_MATRIX.coordinator },
+    member: { ...DEFAULT_WORKSPACE_PERMISSION_MATRIX.member },
+  };
+  const { data, error } = await supabase.from('workspace_role_permissions')
+    .select('role,permission_key,allowed').eq('workspace_id', workspaceId);
+  throwIfError(error);
+  for (const row of data || []) {
+    const role = row.role as ConfigurableWorkspaceRole;
+    const key = row.permission_key as WorkspacePermissionKey;
+    if (role in matrix && key in matrix[role]) matrix[role][key] = Boolean(row.allowed);
+  }
+  return matrix;
+}
+export async function saveWorkspaceRolePermission(
+  workspaceId: string, role: ConfigurableWorkspaceRole, permissionKey: WorkspacePermissionKey, allowed: boolean
+): Promise<void> {
+  const { error } = await supabase.from('workspace_role_permissions').upsert({
+    workspace_id: workspaceId, role, permission_key: permissionKey, allowed, updated_at: new Date().toISOString(),
+  }, { onConflict: 'workspace_id,role,permission_key' });
+  throwIfError(error);
+}
 export async function updateWorkspace(workspaceId: string, ownerUid: string, name: string, description: string): Promise<void> {
   const { data, error } = await supabase.from('workspaces').update({
     name: clampStr(name, SCHEMA_LIMITS.NAME_MAX),

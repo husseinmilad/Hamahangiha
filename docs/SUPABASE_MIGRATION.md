@@ -1,61 +1,66 @@
-# Supabase migration for Hamahangi
+# مهاجرت هماهنگی از Firebase به Supabase
 
-This branch starts the migration from Firebase to Supabase Cloud. It is intentionally separate from `main`; no Firebase production configuration or existing data is deleted by this change.
+این شاخه، نسخه آزمایشی مهاجرت کامل برنامه به Supabase Cloud است. شاخه اصلی و پروژه Firebase قدیمی تا پایان آزمون‌ها دست‌نخورده می‌مانند.
 
-## Target architecture
+## معماری هدف
 
-- Supabase Auth: email + password sign-up/sign-in, sign-out, password recovery.
-- Supabase Postgres: profiles, workspaces, memberships, meeting/task/event items, invitations, notifications.
-- Row Level Security (RLS): workspace membership and role-based data access.
-- Capacitor Local Notifications: retain local reminders on Android.
-- Remote push: separate follow-up task; do not carry over Firebase Messaging or FCM token storage.
+- احراز هویت: Supabase Auth با ایمیل و رمز عبور، ثبت‌نام، ورود، خروج و بازیابی رمز.
+- پایگاه داده: PostgreSQL در Supabase برای پروفایل‌ها، گروه‌ها، اعضا، جلسات/کارها/رویدادها، دعوت‌ها و اعلان‌ها.
+- امنیت: RLS و توابع RPC محدود برای ایجاد گروه، پذیرش/رد دعوت، تغییر نقش و حذف عضو.
+- همگام‌سازی زنده: Supabase Realtime روی جدول‌های دامنه؛ دسترسی داده همچنان تحت RLS است.
+- یادآوری: Capacitor Local Notifications روی اندروید و اعلان مرورگر؛ هیچ FCM یا سرویس Push خارجی استفاده نمی‌شود.
+- داده: این نسخه با دیتابیس خالی آغاز می‌شود؛ مهاجرت داده‌های Firebase در محدوده این نسخه نیست.
 
-## Current migration status
+## وضعیت پیاده‌سازی
 
-1. [x] Create an isolated migration branch.
-2. [x] Add initial PostgreSQL schema and RLS migration.
-3. [x] Add follow-up RLS hardening migration (must be applied after the initial schema).
-4. [x] Apply both SQL migrations in the Supabase Cloud project (confirmed by project owner).
-5. [ ] Configure email/password auth in the Supabase Cloud project.
-6. [ ] Add Supabase JS client and environment variables.
-7. [ ] Replace the Firebase auth UI with email/password sign-up, sign-in and password recovery.
-8. [ ] Replace Firestore listeners and CRUD operations with Postgres queries/realtime.
-9. [ ] Port invitations and workspace membership to secure RPCs / RLS.
-10. [ ] Remove Firebase packages, configuration, rules, functions and messaging worker after parity tests.
-11. [ ] Test web and Android builds; test RLS with multiple users and roles.
-12. [ ] Plan and verify data migration before switching any existing users.
+- [x] ایجاد شاخه مستقل و PR آزمایشی.
+- [x] ایجاد schema اولیه و سیاست‌های RLS.
+- [x] سخت‌سازی مجوزهای نوشتن و RPC پذیرش/رد دعوت.
+- [x] افزودن RPCهای امن مدیریت اعضا و فعال‌سازی Realtime (migration سوم).
+- [x] افزودن کلاینت Supabase و متغیرهای محیطی.
+- [x] جایگزینی صفحه ورود با ایمیل/رمز عبور، ثبت‌نام و بازیابی رمز.
+- [x] جایگزینی سرویس داده Firestore با Postgres و RPC.
+- [x] بازنویسی Context برای Supabase Auth، queryها و Realtime.
+- [x] حذف مسیر FCM از اعلان‌ها و حفظ یادآوری محلی.
+- [ ] اجرای migration سوم در پروژه Supabase.
+- [ ] آزمون build، lint و TypeScript در CI.
+- [ ] آزمون واقعی ثبت‌نام/ورود/بازیابی رمز با SMTP.
+- [ ] آزمون دو حساب و نقش‌های مختلف برای RLS، دعوت و تغییر عضویت.
+- [ ] ساخت و نصب APK و آزمون اعلان‌های محلی در Android.
 
-## Supabase project setup
+## تنظیمات Supabase
 
-Create a project in the Supabase dashboard. For the beta, select a region with reliable connectivity for the intended users. Store the database password privately; never commit it.
+در Supabase → Authentication → Providers → Email، ورود ایمیل/رمز عبور فعال باشد. برای آزمون اولیه می‌توان تأیید ایمیل را موقتاً غیرفعال کرد. برای استفاده واقعی، تأیید ایمیل و SMTP معتبر لازم است؛ بدون SMTP بازیابی رمز قابل اتکا نیست.
 
-In **Authentication → Providers → Email**:
-- Enable email/password sign-up.
-- For the first local beta only, email confirmation may be disabled to avoid requiring SMTP during initial UI testing. Enable confirmation and configure SMTP before inviting real users or using production data.
-- Configure password recovery redirect URLs for the web origin and Capacitor app once those URLs are known.
+در Project Settings → API، مقادیر زیر را در فایل محلی `.env.local` قرار دهید:
 
-In **Project Settings → API**, copy:
-- Project URL → `VITE_SUPABASE_URL`
-- Publishable/anon key → `VITE_SUPABASE_ANON_KEY`
-
-Only the publishable/anon key belongs in the client. Never expose the service-role key or database password in frontend code, GitHub, screenshots, or chat.
-
-Create a local `.env.local` (not committed):
 ```env
-VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+VITE_SUPABASE_URL=https://cyufuqdfalkpotjlxkhu.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 ```
 
-Apply these files in order in the Supabase SQL Editor:
+کلید Publishable/anon برای کلاینت است؛ هرگز service_role key یا رمز دیتابیس را در برنامه یا Git قرار ندهید.
+
+### SQL migrations
+
+دو migration نخست قبلاً توسط مالک پروژه اجرا شده‌اند. migration سوم هنوز باید در SQL Editor اجرا شود:
+
 1. `supabase/migrations/202611190001_initial_schema.sql`
 2. `supabase/migrations/202611190002_security_hardening.sql`
+3. `supabase/migrations/202611190003_realtime_and_membership_rpcs.sql`
 
-The first migration creates the schema. The second tightens column permissions and invitation, membership, and notification policies. Do not load real or sensitive organization data until RLS has been tested with multiple accounts and roles.
+فقط migration سوم را اجرا کنید؛ دو فایل نخست را مجدداً اجرا نکنید. بعد از اجرا، وضعیت جدول‌های Realtime و توابع RPC را بررسی کنید.
 
-## Important migration safeguards
+## CI و APK
 
-- Do not delete or overwrite the Firebase project yet.
-- Do not point the current production app at the new schema until all CRUD, invitation and access-control tests pass.
-- Preserve legacy Firebase UIDs during data migration as a mapping field if the old data must be imported; Supabase Auth user UUIDs are not automatically the same as Firebase UIDs.
-- Keep local Android reminders independent from remote push.
-- The initial SQL is a foundation and must be validated in a disposable Supabase project before production use. It is not yet a completed app migration.
+در GitHub → Settings → Secrets and variables → Actions:
+- Secret با نام `SUPABASE_PUBLISHABLE_KEY` و مقدار Publishable key تعریف شود.
+- در صورت تمایل Variable با نام `SUPABASE_URL` تعریف شود؛ در غیر این صورت URL پروژه پیش‌فرض استفاده می‌شود.
+
+پس از push/PR، workflow باید TypeScript، lint، web build و Android debug APK را اجرا کند. موفقیت build به‌تنهایی جایگزین آزمون چندکاربره و امنیت RLS نیست.
+
+## محدودیت‌های نسخه آزمایشی
+
+- Push notification از راه دور در این مرحله پیاده‌سازی نشده است. اعلان‌های جدید هنگام آنلاین بودن برنامه از طریق Realtime دریافت می‌شوند؛ یادآوری‌های زمان‌بندی‌شده روی دستگاه محلی‌اند.
+- برای دریافت تغییرات لحظه‌ای در حالت بسته بودن اپ، سرویس Push مستقل لازم است و فعلاً خارج از محدوده است.
+- تا قبل از تست چندحسابی و بررسی سیاست‌ها، از داده حساس یا سازمانی واقعی استفاده نشود.

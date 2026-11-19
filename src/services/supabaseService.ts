@@ -219,8 +219,10 @@ export async function updateItemMinutes(workspaceId: string, itemId: string, min
   throwIfError(error);
 }
 export async function deleteWorkspaceItem(workspaceId: string, itemId: string): Promise<void> {
-  const { error } = await supabase.from('workspace_items').delete().eq('id', itemId).eq('workspace_id', workspaceId);
+  const { data, error } = await supabase.from('workspace_items')
+    .delete().eq('id', itemId).eq('workspace_id', workspaceId).select('id').maybeSingle();
   throwIfError(error);
+  if (!data?.id) throw new Error('این مورد حذف نشد؛ ممکن است دسترسی حذف نداشته باشید یا مورد قبلاً حذف شده باشد.');
 }
 export async function markNotificationRead(userId: string, notificationId: string, actionStatus?: NotificationActionStatus): Promise<void> {
   const payload: { read: boolean; action_status?: NotificationActionStatus } = { read: true };

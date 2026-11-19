@@ -23,6 +23,8 @@ interface AppContextValue {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  passwordRecovery: boolean;
   signOutUser: () => Promise<void>;
 }
 const AppContext = createContext<AppContextValue | null>(null);
@@ -80,6 +82,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authReady, setAuthReady] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=recovery'));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [memberships, setMemberships] = useState<UserMembership[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(() => localStorage.getItem('hamahangi_active_ws'));
@@ -119,7 +122,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     let alive = true;
-    const applySession = (sessionUser: any) => {
+    const applySession = (sessionUser: any, event?: string) => {
+      if (event === 'PASSWORD_RECOVERY' || (typeof window !== 'undefined' && window.location.hash.includes('type=recovery'))) setPasswordRecovery(true);
       if (!alive) return;
       setUser(sessionUser ? {
         uid: sessionUser.id, email: sessionUser.email || null,
@@ -134,7 +138,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) setAuthError(authMessage(error.message));
       applySession(data.session?.user);
     }).catch(e => { if (alive) { setAuthError(authMessage(String(e))); setAuthReady(true); } });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => applySession(session?.user));
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => applySession(session?.user, event));
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, []);
 
@@ -293,7 +297,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
     });
     if (error) throw error;
-    setAuthError('در صورت وجود حساب برای این ایمیل، پیام بازیابی رمز ارسال می‌شود. ارسال ایمیل به تنظیم SMTP در Supabase نیاز دارد.');
+  }), [withAuth]);
+  const updatePassword = useCallback((password: string) => withAuth(async () => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+    setPasswordRecovery(false);
+    if (typeof window !== 'undefined') window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
   }), [withAuth]);
   const signOutUser = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
@@ -310,7 +319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveWorkspaceId, activeWorkspace, members, items, itemsLoading, notifications,
     unreadCount, incomingInvites, outgoingInvites, activeTab, setActiveTab, theme, toggleTheme,
     notifPermission, enableDeviceNotifications, liveToast, dismissLiveToast,
-    signInWithEmail, signUpWithEmail, resetPassword, signOutUser,
+    signInWithEmail, signUpWithEmail, resetPassword, updatePassword, passwordRecovery, signOutUser,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

@@ -21,7 +21,7 @@ import {
 import { getIranHoliday } from '../lib/iranHolidays';
 import { ITEM_TYPE_LABELS, WorkspaceItem } from '../types/hamahangi';
 import { ItemCard } from './ItemCard';
-import { respondToItemAttendance, updateItemStatus } from '../services/firestoreService';
+import { respondToItemAttendance, updateItemStatus } from '../services/supabaseService';
 
 interface DashboardViewProps {
   onCreateNew: (defaultDate?: string) => void;

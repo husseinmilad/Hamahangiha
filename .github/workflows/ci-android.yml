@@ -16,6 +16,7 @@ jobs:
     env:
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
       ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+      PUSHE_MANIFEST_TOKEN: ${{ secrets.PUSHE_MANIFEST_TOKEN }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -73,6 +74,25 @@ jobs:
                   1,
               )
               path.write_text(content)
+          PY
+
+      - name: Configure Pushe Android SDK (when credentials are available)
+        if: env.PUSHE_MANIFEST_TOKEN != ''
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path("android/app/build.gradle")
+          content = gradle.read_text()
+          dependency = '    implementation("co.pushe.plus:base:2.6.3")'
+          if dependency not in content:
+              content = content.replace("dependencies {", "dependencies {\\n" + dependency, 1)
+          gradle.write_text(content)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          xml = manifest.read_text()
+          meta = '        <meta-data android:name="pushe_token" android:value="' + __import__("os").environ["PUSHE_MANIFEST_TOKEN"] + '" />'
+          if "android:name=" + chr(34) + "pushe_token" not in xml:
+              xml = xml.replace("</application>", meta + "\\n    </application>", 1)
+          manifest.write_text(xml)
           PY
 
       - name: Add Android scheduled-alarm permissions

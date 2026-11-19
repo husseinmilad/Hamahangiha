@@ -36,7 +36,7 @@ const MainShell: React.FC = () => {
     setActiveWorkspaceId,
     activeWorkspace,
     items,
-    unreadCount,
+    incomingInvites,
     activeTab,
     setActiveTab,
     theme,
@@ -95,8 +95,8 @@ const MainShell: React.FC = () => {
     { id: 'today', label: 'امروز', icon: Home },
     { id: 'calendar', label: 'تقویم شمسی', icon: CalendarDays },
     { id: 'items', label: 'کارها و جلسات', icon: CheckSquare },
-    { id: 'team', label: 'گروه کاری', icon: Users },
-    { id: 'notifications', label: 'اعلان‌ها', icon: Bell, badge: unreadCount },
+    { id: 'team', label: 'گروه کاری', icon: Users, badge: incomingInvites.length },
+    { id: 'notifications', label: 'تنظیمات', icon: Bell },
   ];
 
   const hasWorkspace = memberships.length > 0 && activeWorkspace;

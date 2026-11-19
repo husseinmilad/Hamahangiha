@@ -53,7 +53,9 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     let alive = true;
     checkWorkspacePermission(activeWorkspace.id, 'delete_items')
       .then(allowed => { if (alive) setCanDeleteItems(allowed); })
-      .catch(() => { if (alive) setCanDeleteItems(false); });
+      .catch(() => {
+        if (alive) setCanDeleteItems(activeWorkspace.ownerUid === user.uid || members.some(member => member.uid === user.uid && ['executive', 'coordinator'].includes(member.role)));
+      });
     return () => { alive = false; };
   }, [activeWorkspace?.id, user?.uid]);
 

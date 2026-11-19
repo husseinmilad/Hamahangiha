@@ -3,7 +3,7 @@ import { Plus, Search } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ItemStatus, ItemType, WorkspaceItem } from '../types/hamahangi';
 import { ItemCard } from './ItemCard';
-import { respondToItemAttendance, updateItemStatus } from '../services/firestoreService';
+import { respondToItemAttendance, updateItemStatus } from '../services/supabaseService';
 import { toPersianDigits } from '../lib/jalali';
 
 interface ItemsListViewProps {

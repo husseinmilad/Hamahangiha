@@ -43,6 +43,7 @@ const MainShell: React.FC = () => {
     theme,
     toggleTheme,
     signOutUser,
+    passwordRecovery,
   } = useApp();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -66,6 +67,8 @@ const MainShell: React.FC = () => {
       </div>
     );
   }
+
+  if (passwordRecovery) return <LoginScreen />;
 
   if (!user) {
     return <LoginScreen />;
@@ -105,7 +108,7 @@ const MainShell: React.FC = () => {
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 lg:right-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-30">
         <div className="h-16 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2.5">
           <img
-            src="/icon.svg"
+            src={`${import.meta.env.BASE_URL}icon.svg`}
             alt="نشان هماهنگی"
             className="w-8 h-8 rounded-xl shrink-0"
             referrerPolicy="no-referrer"
@@ -212,7 +215,7 @@ const MainShell: React.FC = () => {
         <header className="sticky top-0 z-20 h-12 lg:h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <img
-              src="/icon.svg"
+              src={`${import.meta.env.BASE_URL}icon.svg`}
               alt="نشان هماهنگی"
               className="w-7 h-7 rounded-lg lg:hidden shrink-0"
               referrerPolicy="no-referrer"

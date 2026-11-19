@@ -1,92 +1,92 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row adapters are isolated here; runtime row shape is defined by versioned SQL migrations. */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
-import { Capacitor } from '@capacitor/core';
-import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { supabase } from '../lib/supabase';
+import { AppUser, UserMembership, UserNotification, UserProfile, Workspace, WorkspaceInvite, WorkspaceItem, WorkspaceMember } from '../types/hamahangi';
 import {
-  collection,
-  doc,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore';
-import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
-import {
-  UserMembership,
-  UserNotification,
-  UserProfile,
-  Workspace,
-  WorkspaceInvite,
-  WorkspaceItem,
-  WorkspaceMember,
-} from '../types/hamahangi';
-import { ensureUserProfile } from '../services/firestoreService';
-import {
-  getNotificationPermission,
-  refreshNotificationPermission,
-  NotificationPermissionState,
-  requestNotificationPermission,
-  showDeviceNotification,
-  isNativePlatform,
-  setupDevicePush,
-  enableRemotePush,
-  scheduleNativeReminders,
-  unregisterDevicePush,
+  getNotificationPermission, refreshNotificationPermission, NotificationPermissionState,
+  requestNotificationPermission, showDeviceNotification, isNativePlatform, scheduleNativeReminders,
 } from '../lib/notifications';
 import { getTodayJalaliStr, toPersianDigits } from '../lib/jalali';
 
 export type ActiveTab = 'today' | 'calendar' | 'items' | 'team' | 'notifications';
-
-interface LiveToastMessage {
-  id: string;
-  title: string;
-  body: string;
-  itemId?: string;
-}
-
+interface LiveToastMessage { id: string; title: string; body: string; itemId?: string }
 interface AppContextValue {
-  user: User | null;
-  authReady: boolean;
-  authLoading: boolean;
-  authError: string | null;
-  profile: UserProfile | null;
-  memberships: UserMembership[];
-  activeWorkspaceId: string | null;
-  setActiveWorkspaceId: (id: string) => void;
-  activeWorkspace: Workspace | null;
-  members: WorkspaceMember[];
-  items: WorkspaceItem[];
-  itemsLoading: boolean;
-  notifications: UserNotification[];
-  unreadCount: number;
-  incomingInvites: WorkspaceInvite[];
-  outgoingInvites: WorkspaceInvite[];
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
-  notifPermission: NotificationPermissionState;
-  enableDeviceNotifications: () => Promise<NotificationPermissionState>;
-  liveToast: LiveToastMessage | null;
-  dismissLiveToast: () => void;
-  signInWithGoogle: () => Promise<void>;
+  user: AppUser | null; authReady: boolean; authLoading: boolean; authError: string | null;
+  profile: UserProfile | null; memberships: UserMembership[]; activeWorkspaceId: string | null;
+  setActiveWorkspaceId: (id: string) => void; activeWorkspace: Workspace | null;
+  members: WorkspaceMember[]; items: WorkspaceItem[]; itemsLoading: boolean;
+  notifications: UserNotification[]; unreadCount: number;
+  incomingInvites: WorkspaceInvite[]; outgoingInvites: WorkspaceInvite[];
+  activeTab: ActiveTab; setActiveTab: (tab: ActiveTab) => void;
+  theme: 'light' | 'dark'; toggleTheme: () => void;
+  notifPermission: NotificationPermissionState; enableDeviceNotifications: () => Promise<NotificationPermissionState>;
+  liveToast: LiveToastMessage | null; dismissLiveToast: () => void;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  passwordRecovery: boolean;
   signOutUser: () => Promise<void>;
 }
-
 const AppContext = createContext<AppContextValue | null>(null);
 
+function authMessage(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'ایمیل یا رمز عبور صحیح نیست.';
+  if (m.includes('user already registered')) return 'این ایمیل قبلاً ثبت‌نام کرده است؛ وارد حساب شوید.';
+  if (m.includes('password should be at least')) return 'رمز عبور باید حداقل ۶ نویسه باشد.';
+  if (m.includes('email not confirmed')) return 'ایمیل حساب هنوز تأیید نشده است.';
+  if (m.includes('rate limit')) return 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.';
+  if (m.includes('network') || m.includes('fetch')) return 'ارتباط با سرور برقرار نشد؛ اینترنت و تنظیمات Supabase را بررسی کنید.';
+  return message || 'خطای نامشخص در ارتباط با حساب کاربری.';
+}
+const mapProfile = (r: any): UserProfile => ({
+  uid: r.id, email: r.email || '', displayName: r.display_name || '',
+  photoURL: r.photo_url || '', defaultTitle: r.default_title || 'عضو تیم',
+  createdAt: r.created_at, updatedAt: r.updated_at,
+});
+const mapWorkspace = (r: any): Workspace => ({
+  id: r.id, name: r.name, description: r.description || '', ownerUid: r.owner_uid,
+  createdAt: r.created_at, updatedAt: r.updated_at,
+});
+const mapMember = (r: any): WorkspaceMember => ({
+  uid: r.user_id, email: r.email, displayName: r.display_name, photoURL: r.photo_url || '',
+  role: r.role, inviteId: r.invite_id || '', joinedAt: r.joined_at,
+});
+const mapItem = (r: any): WorkspaceItem => ({
+  id: r.id, workspaceId: r.workspace_id, type: r.type, title: r.title, description: r.description || '',
+  jalaliDate: r.jalali_date, gregorianDate: r.gregorian_date, startTime: r.start_time || '',
+  endTime: r.end_time || '', location: r.location || '', meetingLink: r.meeting_link || '',
+  priority: r.priority, status: r.status, assigneeEmail: r.assignee_email || '',
+  assigneeName: r.assignee_name || '', assigneeUid: r.assignee_uid || '', agenda: r.agenda || '',
+  minutes: r.minutes || '', checklist: r.checklist || [], confirmedUids: r.confirmed_uids || [],
+  declinedUids: r.declined_uids || [], notifyMembers: r.notify_members,
+  reminderMinutes: r.reminder_minutes ?? 15, createdByUid: r.created_by_uid,
+  createdByName: r.created_by_name, createdByEmail: r.created_by_email,
+  createdAt: r.created_at, updatedAt: r.updated_at,
+});
+const mapInvite = (r: any): WorkspaceInvite => ({
+  id: r.id, workspaceId: r.workspace_id, workspaceName: r.workspace_name,
+  invitedEmail: r.invited_email, invitedByUid: r.invited_by_uid, invitedByName: r.invited_by_name,
+  invitedByEmail: r.invited_by_email, role: r.role, status: r.status,
+  createdAt: r.created_at, updatedAt: r.updated_at,
+});
+const mapNotification = (r: any): UserNotification => ({
+  id: r.id, workspaceId: r.workspace_id, workspaceName: r.workspace_name, itemId: r.item_id || '',
+  itemType: r.item_type, title: r.title, body: r.body || '', senderUid: r.sender_uid || '',
+  senderName: r.sender_name || '', senderEmail: r.sender_email || '', read: r.read,
+  actionStatus: r.action_status || 'none', createdAt: r.created_at,
+});
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-
+  const [passwordRecovery, setPasswordRecovery] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=recovery'));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [memberships, setMemberships] = useState<UserMembership[]>([]);
-  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(() =>
-    localStorage.getItem('hamahangi_active_ws')
-  );
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(() => localStorage.getItem('hamahangi_active_ws'));
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [items, setItems] = useState<WorkspaceItem[]>([]);
@@ -94,422 +94,240 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [incomingInvites, setIncomingInvites] = useState<WorkspaceInvite[]>([]);
   const [outgoingInvites, setOutgoingInvites] = useState<WorkspaceInvite[]>([]);
-
   const [activeTab, setActiveTab] = useState<ActiveTab>('today');
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('hamahangi_theme');
-    return saved === 'dark' ? 'dark' : 'light';
-  });
-  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() =>
-    getNotificationPermission()
-  );
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('hamahangi_theme') === 'dark' ? 'dark' : 'light');
+  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermission());
   const [liveToast, setLiveToast] = useState<LiveToastMessage | null>(null);
-
   const seenNotifIdsRef = useRef<Set<string>>(new Set());
-  const isInitialNotifBatchRef = useRef(true);
+  const initialNotifBatchRef = useRef(true);
   const firedReminderKeysRef = useRef<Set<string>>(new Set());
-  const reminderItemsByWorkspaceRef = useRef<Map<string, WorkspaceItem[]>>(new Map());
 
-  useEffect(() => {
-    let active = true;
-    void refreshNotificationPermission().then((permission) => {
-      if (active) setNotifPermission(permission);
-    });
-    return () => { active = false; };
+  const setActiveWorkspaceId = useCallback((id: string | null) => {
+    setActiveWorkspaceIdState(id || null);
+    if (id) localStorage.setItem('hamahangi_active_ws', id);
+    else localStorage.removeItem('hamahangi_active_ws');
   }, []);
+  const toggleTheme = useCallback(() => setTheme(p => p === 'dark' ? 'light' : 'dark'), []);
+  const dismissLiveToast = useCallback(() => setLiveToast(null), []);
 
-  // Sync theme to document.documentElement
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    root.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('hamahangi_theme', theme);
   }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  }, []);
-
-  const setActiveWorkspaceId = useCallback((id: string) => {
-    setActiveWorkspaceIdState(id);
-    localStorage.setItem('hamahangi_active_ws', id);
-  }, []);
-
-  const enableDeviceNotifications = useCallback(async () => {
-    const res = await requestNotificationPermission();
-    setNotifPermission(res);
-    if (res === 'granted' && user) {
-      const pushReady = await enableRemotePush(user.uid);
-      if (!pushReady) {
-        console.warn('Remote push is not fully configured; local Android reminders remain available.');
-      }
-    }
-    return res;
-  }, [user]);
-
-  const dismissLiveToast = useCallback(() => {
-    setLiveToast(null);
-  }, []);
-
-  // Auth listener
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+    let alive = true;
+    void refreshNotificationPermission().then(p => { if (alive) setNotifPermission(p); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const applySession = (sessionUser: any, event?: string) => {
+      if (event === 'PASSWORD_RECOVERY' || (typeof window !== 'undefined' && window.location.hash.includes('type=recovery'))) setPasswordRecovery(true);
+      if (!alive) return;
+      setUser(sessionUser ? {
+        uid: sessionUser.id, email: sessionUser.email || null,
+        displayName: sessionUser.user_metadata?.display_name || sessionUser.email?.split('@')[0] || 'کاربر',
+        photoURL: sessionUser.user_metadata?.avatar_url || '',
+      } : null);
       setAuthReady(true);
       seenNotifIdsRef.current.clear();
-      isInitialNotifBatchRef.current = true;
-
-      if (currentUser) {
-        try {
-          await ensureUserProfile(currentUser);
-        } catch (err) {
-          console.error(err);
-        }
-      } else {
-        setProfile(null);
-        setMemberships([]);
-        setActiveWorkspace(null);
-        setMembers([]);
-        setItems([]);
-        setNotifications([]);
-        setIncomingInvites([]);
-        setOutgoingInvites([]);
-      }
-    });
-    return () => unsub();
+      initialNotifBatchRef.current = true;
+    };
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (error) setAuthError(authMessage(error.message));
+      applySession(data.session?.user);
+    }).catch(e => { if (alive) { setAuthError(authMessage(String(e))); setAuthReady(true); } });
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => applySession(session?.user, event));
+    return () => { alive = false; listener.subscription.unsubscribe(); };
   }, []);
 
-  // Register FCM listeners for this signed-in device. Permission is requested only after user action.
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    let cleanup: (() => void) | undefined;
-    void setupDevicePush(user.uid)
-      .then((dispose) => {
-        if (cancelled) dispose();
-        else cleanup = dispose;
-      })
-      .catch((error) => console.error('Push listener setup failed', error));
-    return () => {
-      cancelled = true;
-      cleanup?.();
+    if (!user) {
+      setProfile(null); setMemberships([]); setActiveWorkspace(null); setMembers([]);
+      setItems([]); setNotifications([]); setIncomingInvites([]); setOutgoingInvites([]);
+      setActiveWorkspaceId(null); void scheduleNativeReminders([]);
+      return;
+    }
+    let alive = true;
+    const load = async () => {
+      const [p, m, n, incoming, outgoing] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.uid).maybeSingle(),
+        supabase.from('workspace_members').select('workspace_id,role,joined_at').eq('user_id', user.uid),
+        supabase.from('user_notifications').select('*').eq('user_id', user.uid).order('created_at', { ascending: false }).limit(50),
+        supabase.from('workspace_invites').select('*').eq('status', 'pending').ilike('invited_email', user.email || ''),
+        supabase.from('workspace_invites').select('*').eq('invited_by_uid', user.uid).order('created_at', { ascending: false }),
+      ]);
+      for (const result of [p,m,n,incoming,outgoing]) if (result.error) throw result.error;
+      const wsIds = (m.data || []).map((x: any) => x.workspace_id);
+      const workspacesResult = wsIds.length
+        ? await supabase.from('workspaces').select('*').in('id', wsIds)
+        : { data: [], error: null };
+      if (workspacesResult.error) throw workspacesResult.error;
+      const wsById = new Map((workspacesResult.data || []).map((w: any) => [w.id, w]));
+      const membershipRows: UserMembership[] = (m.data || []).flatMap((x: any) => {
+        const w: any = wsById.get(x.workspace_id);
+        return w ? [{ workspaceId: w.id, workspaceName: w.name, role: x.role, ownerUid: w.owner_uid, joinedAt: x.joined_at }] : [];
+      });
+      if (!alive) return;
+      setProfile(p.data ? mapProfile(p.data) : null);
+      setMemberships(membershipRows);
+      setNotifications((n.data || []).map(mapNotification));
+      setIncomingInvites((incoming.data || []).map(mapInvite));
+      setOutgoingInvites((outgoing.data || []).map(mapInvite));
+      setActiveWorkspaceIdState(prev => {
+        const next = prev && membershipRows.some(x => x.workspaceId === prev) ? prev : membershipRows[0]?.workspaceId || null;
+        if (next) localStorage.setItem('hamahangi_active_ws', next);
+        else localStorage.removeItem('hamahangi_active_ws');
+        return next;
+      });
+      if (initialNotifBatchRef.current) {
+        (n.data || []).forEach((x: any) => seenNotifIdsRef.current.add(x.id));
+        initialNotifBatchRef.current = false;
+      } else {
+        const fresh = (n.data || []).filter((x: any) => !x.read && !seenNotifIdsRef.current.has(x.id));
+        (n.data || []).forEach((x: any) => seenNotifIdsRef.current.add(x.id));
+        if (fresh.length) {
+          const latest = fresh[0];
+          setLiveToast({ id: latest.id, title: latest.title, body: latest.body, itemId: latest.item_id });
+          if (!isNativePlatform()) void showDeviceNotification(latest.title, latest.body, latest.id);
+        }
+      }
     };
-  }, [user]);
+    void load().catch(e => console.error('Supabase data load failed', e));
+    const channel = supabase.channel(`user-data-${user.uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => { void load().catch(e => console.error(e)); })
+      .subscribe();
+    return () => { alive = false; void supabase.removeChannel(channel); };
+  }, [user, setActiveWorkspaceId]);
 
-  // User profile, memberships, notifications, invites listeners
   useEffect(() => {
-    if (!authReady || !user) return;
-    const emailLower = (user.email ?? '').toLowerCase();
-
-    const unsubProfile = onSnapshot(
-      doc(db, 'users', user.uid),
-      (snap) => {
-        if (snap.exists()) {
-          setProfile(snap.data() as UserProfile);
-        }
-      },
-      (error) => handleFirestoreError(error, OperationType.GET, `users/${user.uid}`)
-    );
-
-    const unsubMemberships = onSnapshot(
-      collection(db, 'users', user.uid, 'memberships'),
-      (snap) => {
-        const list = snap.docs.map((d) => d.data() as UserMembership);
-        setMemberships(list);
-        setActiveWorkspaceIdState((prev) => {
-          if (prev && list.some((m) => m.workspaceId === prev)) {
-            return prev;
-          }
-          const nextId = list[0]?.workspaceId ?? null;
-          if (nextId) localStorage.setItem('hamahangi_active_ws', nextId);
-          return nextId;
-        });
-      },
-      (error) => handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/memberships`)
-    );
-
-    const notifQuery = query(
-      collection(db, 'users', user.uid, 'notifications'),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-    const unsubNotifications = onSnapshot(
-      notifQuery,
-      (snap) => {
-        const list = snap.docs.map((d) => d.data() as UserNotification);
-        setNotifications(list);
-
-        if (isInitialNotifBatchRef.current) {
-          list.forEach((n) => seenNotifIdsRef.current.add(n.id));
-          isInitialNotifBatchRef.current = false;
-        } else {
-          const newUnread = list.filter((n) => !n.read && !seenNotifIdsRef.current.has(n.id));
-          list.forEach((n) => seenNotifIdsRef.current.add(n.id));
-          if (newUnread.length > 0) {
-            const latest = newUnread[0];
-            setLiveToast({
-              id: latest.id,
-              title: latest.title,
-              body: latest.body,
-              itemId: latest.itemId,
-            });
-            if (!isNativePlatform()) {
-              void showDeviceNotification(latest.title, latest.body, latest.id);
-            }
-          }
-        }
-      },
-      (error) => handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/notifications`)
-    );
-
-    const inInvQuery = query(
-      collection(db, 'workspaceInvites'),
-      where('invitedEmail', '==', emailLower)
-    );
-    const unsubInInv = onSnapshot(
-      inInvQuery,
-      (snap) => {
-        const list = snap.docs.map((d) => d.data() as WorkspaceInvite);
-        setIncomingInvites(list.filter((i) => i.status === 'pending'));
-      },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'workspaceInvites')
-    );
-
-    const outInvQuery = query(
-      collection(db, 'workspaceInvites'),
-      where('invitedByUid', '==', user.uid)
-    );
-    const unsubOutInv = onSnapshot(
-      outInvQuery,
-      (snap) => {
-        const list = snap.docs.map((d) => d.data() as WorkspaceInvite);
-        setOutgoingInvites(list);
-      },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'workspaceInvites')
-    );
-
-    return () => {
-      unsubProfile();
-      unsubMemberships();
-      unsubNotifications();
-      unsubInInv();
-      unsubOutInv();
+    if (!user || !activeWorkspaceId) {
+      setActiveWorkspace(null); setMembers([]); setItems([]); setItemsLoading(false);
+      return;
+    }
+    let alive = true;
+    setItemsLoading(true);
+    const loadWorkspace = async () => {
+      const [w, m, i] = await Promise.all([
+        supabase.from('workspaces').select('*').eq('id', activeWorkspaceId).maybeSingle(),
+        supabase.from('workspace_members').select('*').eq('workspace_id', activeWorkspaceId),
+        supabase.from('workspace_items').select('*').eq('workspace_id', activeWorkspaceId).order('gregorian_date', { ascending: true }),
+      ]);
+      for (const r of [w,m,i]) if (r.error) throw r.error;
+      if (!alive) return;
+      setActiveWorkspace(w.data ? mapWorkspace(w.data) : null);
+      setMembers((m.data || []).map(mapMember));
+      const mapped = (i.data || []).map(mapItem).sort((a,b) =>
+        a.gregorianDate.localeCompare(b.gregorianDate) || (a.startTime || '99:99').localeCompare(b.startTime || '99:99'));
+      setItems(mapped); setItemsLoading(false);
     };
-  }, [authReady, user]);
+    void loadWorkspace().catch(e => { console.error('Workspace load failed', e); if (alive) setItemsLoading(false); });
+    const channel = supabase.channel(`workspace-data-${activeWorkspaceId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspaces', filter: `id=eq.${activeWorkspaceId}` }, () => { void loadWorkspace(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members', filter: `workspace_id=eq.${activeWorkspaceId}` }, () => { void loadWorkspace(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_items', filter: `workspace_id=eq.${activeWorkspaceId}` }, () => { void loadWorkspace(); })
+      .subscribe();
+    return () => { alive = false; void supabase.removeChannel(channel); };
+  }, [user, activeWorkspaceId]);
 
-  // Keep native reminder schedules in sync across every workspace, not only the selected one.
   useEffect(() => {
     if (!isNativePlatform()) return;
-    reminderItemsByWorkspaceRef.current.clear();
-    if (!user || memberships.length === 0) {
-      void scheduleNativeReminders([]);
-      return;
-    }
-    const unsubscribers = memberships.map((membership) =>
-      onSnapshot(
-        collection(db, 'workspaces', membership.workspaceId, 'items'),
-        (snapshot) => {
-          reminderItemsByWorkspaceRef.current.set(
-            membership.workspaceId,
-            snapshot.docs.map((itemDoc) => itemDoc.data() as WorkspaceItem)
-          );
-          const allItems = Array.from(reminderItemsByWorkspaceRef.current.values()).flat();
-          void scheduleNativeReminders(allItems);
-        },
-        (error) => console.error('Native reminder sync failed', membership.workspaceId, error)
-      )
-    );
-    return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
-      reminderItemsByWorkspaceRef.current.clear();
+    if (!user || memberships.length === 0) { void scheduleNativeReminders([]); return; }
+    let alive = true;
+    const sync = async () => {
+      const ids = memberships.map(m => m.workspaceId);
+      const { data, error } = await supabase.from('workspace_items').select('*').in('workspace_id', ids);
+      if (error) throw error;
+      if (alive) await scheduleNativeReminders((data || []).map(mapItem));
     };
+    void sync().catch(e => console.error('Local reminder sync failed', e));
+    const channel = supabase.channel(`reminders-${user.uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_items' }, () => { void sync(); })
+      .subscribe();
+    return () => { alive = false; void supabase.removeChannel(channel); };
   }, [user, memberships]);
 
-  // Active workspace, members, and items listeners
   useEffect(() => {
-    if (!authReady || !user || !activeWorkspaceId) {
-      setActiveWorkspace(null);
-      setMembers([]);
-      setItems([]);
-      setItemsLoading(false);
-      return;
-    }
-
-    setItemsLoading(true);
-
-    const unsubWs = onSnapshot(
-      doc(db, 'workspaces', activeWorkspaceId),
-      (snap) => {
-        if (snap.exists()) {
-          setActiveWorkspace(snap.data() as Workspace);
-        } else {
-          setActiveWorkspace(null);
-        }
-      },
-      (error) => handleFirestoreError(error, OperationType.GET, `workspaces/${activeWorkspaceId}`)
-    );
-
-    const unsubMembers = onSnapshot(
-      collection(db, 'workspaces', activeWorkspaceId, 'members'),
-      (snap) => {
-        setMembers(snap.docs.map((d) => d.data() as WorkspaceMember));
-      },
-      (error) =>
-        handleFirestoreError(error, OperationType.LIST, `workspaces/${activeWorkspaceId}/members`)
-    );
-
-    const itemsQuery = query(
-      collection(db, 'workspaces', activeWorkspaceId, 'items'),
-      orderBy('gregorianDate', 'asc')
-    );
-    const unsubItems = onSnapshot(
-      itemsQuery,
-      (snap) => {
-        const list = snap.docs.map((d) => d.data() as WorkspaceItem);
-        list.sort((a, b) => {
-          const dateCmp = a.gregorianDate.localeCompare(b.gregorianDate);
-          if (dateCmp !== 0) return dateCmp;
-          return (a.startTime || '99:99').localeCompare(b.startTime || '99:99');
-        });
-        setItems(list);
-        setItemsLoading(false);
-      },
-      (error) =>
-        handleFirestoreError(error, OperationType.LIST, `workspaces/${activeWorkspaceId}/items`)
-    );
-
-    return () => {
-      unsubWs();
-      unsubMembers();
-      unsubItems();
-    };
-  }, [authReady, user, activeWorkspaceId]);
-
-  // Background meeting reminder checker (every 45s)
-  useEffect(() => {
-    if (isNativePlatform()) return;
-    if (!user || items.length === 0) return;
-
-    const checkReminders = () => {
-      const todayJalali = getTodayJalaliStr();
-      const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
+    if (isNativePlatform() || !user || !items.length) return;
+    const check = () => {
+      const today = getTodayJalaliStr(), now = new Date(), minutes = now.getHours() * 60 + now.getMinutes();
       for (const item of items) {
-        if (
-          item.jalaliDate !== todayJalali ||
-          item.status === 'completed' ||
-          item.status === 'cancelled' ||
-          !item.startTime ||
-          item.reminderMinutes <= 0
-        ) {
-          continue;
-        }
-        const [hh, mm] = item.startTime.split(':').map(Number);
-        if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
-        const startMin = hh * 60 + mm;
-        const diff = startMin - currentMinutes;
-
-        const key = `${item.id}_${item.jalaliDate}_${item.startTime}`;
+        if (item.jalaliDate !== today || ['completed','cancelled'].includes(item.status) || !item.startTime || item.reminderMinutes <= 0) continue;
+        const [h,m] = item.startTime.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) continue;
+        const diff = h * 60 + m - minutes, key = `${item.id}_${item.jalaliDate}_${item.startTime}`;
         if (diff >= 0 && diff <= item.reminderMinutes && !firedReminderKeysRef.current.has(key)) {
           firedReminderKeysRef.current.add(key);
-          const msg =
-            diff === 0
-              ? `هم‌اکنون ساعت ${toPersianDigits(item.startTime)} آغاز می‌شود.`
-              : `${toPersianDigits(diff)} دقیقه تا شروع (ساعت ${toPersianDigits(item.startTime)})`;
-          setLiveToast({
-            id: `rem_${key}`,
-            title: `یادآوری: ${item.title}`,
-            body: msg,
-            itemId: item.id,
-          });
-          showDeviceNotification(`یادآوری: ${item.title}`, msg, `rem_${key}`);
+          const body = diff === 0 ? `هم‌اکنون ساعت ${toPersianDigits(item.startTime)} آغاز می‌شود.` : `${toPersianDigits(diff)} دقیقه تا شروع (ساعت ${toPersianDigits(item.startTime)})`;
+          setLiveToast({ id: `rem_${key}`, title: `یادآوری: ${item.title}`, body, itemId: item.id });
+          void showDeviceNotification(`یادآوری: ${item.title}`, body, `rem_${key}`);
         }
       }
     };
-
-    checkReminders();
-    const timer = setInterval(checkReminders, 45000);
-    return () => clearInterval(timer);
+    check(); const timer = window.setInterval(check, 45000);
+    return () => window.clearInterval(timer);
   }, [user, items]);
-
-  // Auto-hide toast after 6 seconds
   useEffect(() => {
     if (!liveToast) return;
-    const t = setTimeout(() => setLiveToast(null), 6500);
-    return () => clearTimeout(t);
+    const timer = window.setTimeout(() => setLiveToast(null), 6500);
+    return () => window.clearTimeout(timer);
   }, [liveToast]);
 
-  const signInWithGoogle = useCallback(async () => {
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      if (Capacitor.isNativePlatform()) {
-        const result = await FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
-        const idToken = result.credential?.idToken;
-        if (!idToken) throw new Error('ورود گوگل توکن معتبر برنگرداند؛ تنظیمات Firebase Android را بررسی کنید.');
-        await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
-      } else {
-        await signInWithPopup(auth, googleProvider);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'خطا در ورود با حساب گوگل';
-      setAuthError(msg);
-    } finally {
-      setAuthLoading(false);
-    }
+  const withAuth = useCallback(async (fn: () => Promise<void>) => {
+    setAuthLoading(true); setAuthError(null);
+    try { await fn(); }
+    catch (e) { const message = e instanceof Error ? e.message : String(e); setAuthError(authMessage(message)); throw e; }
+    finally { setAuthLoading(false); }
   }, []);
-
+  const signInWithEmail = useCallback((email: string, password: string) => withAuth(async () => {
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    if (error) throw error;
+  }), [withAuth]);
+  const signUpWithEmail = useCallback((email: string, password: string, displayName: string) => withAuth(async () => {
+    const { error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(), password,
+      options: { data: { display_name: displayName.trim() || email.split('@')[0] } },
+    });
+    if (error) throw error;
+  }), [withAuth]);
+  const resetPassword = useCallback((email: string) => withAuth(async () => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
+    if (error) throw error;
+  }), [withAuth]);
+  const updatePassword = useCallback((password: string) => withAuth(async () => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+    setPasswordRecovery(false);
+    if (typeof window !== 'undefined') window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+  }), [withAuth]);
   const signOutUser = useCallback(async () => {
-    if (user) await unregisterDevicePush(user.uid);
-    if (Capacitor.isNativePlatform()) {
-      try { await FirebaseAuthentication.signOut(); } catch (error) {
-        console.warn('Native sign-out was skipped', error);
-      }
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  }, []);
+  const enableDeviceNotifications = useCallback(async () => {
+    const permission = await requestNotificationPermission();
+    setNotifPermission(permission);
+    if (permission === 'granted' && isNativePlatform() && memberships.length > 0) {
+      const { data, error } = await supabase.from('workspace_items').select('*').in('workspace_id', memberships.map(m => m.workspaceId));
+      if (error) console.error('Could not refresh local reminders after permission grant', error);
+      else await scheduleNativeReminders((data || []).map(mapItem));
     }
-    await signOut(auth);
-  }, [user]);
-
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.read).length + incomingInvites.length,
-    [notifications, incomingInvites]
-  );
-
+    return permission;
+  }, [memberships]);
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length + incomingInvites.length, [notifications, incomingInvites]);
   const value: AppContextValue = {
-    user,
-    authReady,
-    authLoading,
-    authError,
-    profile,
-    memberships,
-    activeWorkspaceId,
-    setActiveWorkspaceId,
-    activeWorkspace,
-    members,
-    items,
-    itemsLoading,
-    notifications,
-    unreadCount,
-    incomingInvites,
-    outgoingInvites,
-    activeTab,
-    setActiveTab,
-    theme,
-    toggleTheme,
-    notifPermission,
-    enableDeviceNotifications,
-    liveToast,
-    dismissLiveToast,
-    signInWithGoogle,
-    signOutUser,
+    user, authReady, authLoading, authError, profile, memberships, activeWorkspaceId,
+    setActiveWorkspaceId, activeWorkspace, members, items, itemsLoading, notifications,
+    unreadCount, incomingInvites, outgoingInvites, activeTab, setActiveTab, theme, toggleTheme,
+    notifPermission, enableDeviceNotifications, liveToast, dismissLiveToast,
+    signInWithEmail, signUpWithEmail, resetPassword, updatePassword, passwordRecovery, signOutUser,
   };
-
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
 export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');

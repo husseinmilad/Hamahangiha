@@ -25,7 +25,7 @@ import {
 import { getTodayJalaliStr, toPersianDigits } from '../lib/jalali';
 import { JalaliDatePicker } from './JalaliDatePicker';
 import { useApp } from '../context/AppContext';
-import { generateSafeId, saveWorkspaceItem } from '../services/firestoreService';
+import { generateSafeId, saveWorkspaceItem } from '../services/supabaseService';
 
 interface ItemFormModalProps {
   initialDate?: string;

@@ -27,7 +27,7 @@ import {
   toggleItemChecklist,
   updateItemMinutes,
   updateItemStatus,
-} from '../services/firestoreService';
+} from '../services/supabaseService';
 
 interface ItemDetailModalProps {
   item: WorkspaceItem;

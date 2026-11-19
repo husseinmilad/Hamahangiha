@@ -323,7 +323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return permission;
   }, [memberships]);
-  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length + incomingInvites.length, [notifications, incomingInvites]);
+  const unreadCount = useMemo(() => incomingInvites.length, [incomingInvites]);
   const value: AppContextValue = {
     user, authReady, authLoading, authError, profile, memberships, activeWorkspaceId,
     setActiveWorkspaceId, activeWorkspace, members, items, itemsLoading, removeItemLocally, notifications,

@@ -6,7 +6,7 @@ import {
   createWorkspace,
   declineWorkspaceInvite,
   getRoleDisplayLabel,
-} from '../services/firestoreService';
+} from '../services/supabaseService';
 
 export const WorkspaceSetupBanner: React.FC = () => {
   const { user, incomingInvites, setActiveWorkspaceId, setActiveTab } = useApp();

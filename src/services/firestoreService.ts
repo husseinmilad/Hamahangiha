@@ -1,596 +1,245 @@
+import { supabase } from '../lib/supabase';
 import {
-  deleteDoc,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  writeBatch,
-} from 'firebase/firestore';
-import { User } from 'firebase/auth';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import {
-  ChecklistItem,
-  ITEM_TYPE_LABELS,
-  ItemPriority,
-  ItemStatus,
-  ItemType,
-  NotificationActionStatus,
-  SCHEMA_LIMITS,
-  Workspace,
-  WorkspaceInvite,
-  WorkspaceItem,
-  WorkspaceMember,
-  WorkspaceRole,
+  AppUser, ChecklistItem, ITEM_TYPE_LABELS, ItemPriority, ItemStatus, ItemType,
+  NotificationActionStatus, SCHEMA_LIMITS, Workspace, WorkspaceInvite,
+  WorkspaceItem, WorkspaceMember, WorkspaceRole,
 } from '../types/hamahangi';
 import { jalaliToGregorianStr, toPersianDigits } from '../lib/jalali';
 
 function clampStr(value: string | null | undefined, maxLen: number): string {
   return (value ?? '').trim().slice(0, maxLen);
 }
-
+function throwIfError(error: { message: string } | null): void {
+  if (error) throw new Error(error.message);
+}
 export function generateSafeId(prefix = 'id'): string {
-  const rand =
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
-      : Math.random().toString(36).slice(2, 14);
+  const rand = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+    : Math.random().toString(36).slice(2, 14);
   return `${prefix}_${Date.now().toString(36)}_${rand}`;
 }
-
-export async function ensureUserProfile(user: User, defaultTitle?: string): Promise<void> {
-  const path = `users/${user.uid}`;
-  const ref = doc(db, 'users', user.uid);
-  try {
-    const snap = await getDoc(ref);
-    const email = clampStr((user.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-    const displayName = clampStr(
-      user.displayName || email.split('@')[0] || 'کاربر هماهنگی',
-      SCHEMA_LIMITS.NAME_MAX
-    );
-    const photoURL = clampStr(user.photoURL, SCHEMA_LIMITS.PHOTO_MAX);
-
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        uid: user.uid,
-        email,
-        displayName,
-        photoURL,
-        defaultTitle: clampStr(defaultTitle || 'عضو تیم', SCHEMA_LIMITS.DEFAULT_TITLE_MAX),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      const existingData = snap.data();
-      await updateDoc(ref, {
-        displayName,
-        photoURL,
-        defaultTitle: clampStr(
-          defaultTitle ?? existingData.defaultTitle ?? 'عضو تیم',
-          SCHEMA_LIMITS.DEFAULT_TITLE_MAX
-        ),
-        updatedAt: serverTimestamp(),
-      });
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-  }
+export async function ensureUserProfile(user: AppUser): Promise<void> {
+  const { error } = await supabase.from('profiles').upsert({
+    id: user.uid,
+    email: clampStr(user.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX),
+    display_name: clampStr(user.displayName, SCHEMA_LIMITS.NAME_MAX),
+    photo_url: clampStr(user.photoURL, SCHEMA_LIMITS.PHOTO_MAX),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'id', ignoreDuplicates: true });
+  throwIfError(error);
 }
-
-export async function updateUserDefaultTitle(user: User, defaultTitle: string): Promise<void> {
-  const path = `users/${user.uid}`;
-  try {
-    await updateDoc(doc(db, 'users', user.uid), {
-      displayName: clampStr(user.displayName || user.email?.split('@')[0] || 'کاربر', SCHEMA_LIMITS.NAME_MAX),
-      photoURL: clampStr(user.photoURL, SCHEMA_LIMITS.PHOTO_MAX),
-      defaultTitle: clampStr(defaultTitle, SCHEMA_LIMITS.DEFAULT_TITLE_MAX),
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
+export async function updateUserDefaultTitle(user: AppUser, defaultTitle: string): Promise<void> {
+  const { error } = await supabase.from('profiles').update({
+    display_name: clampStr(user.displayName || user.email?.split('@')[0] || 'کاربر', SCHEMA_LIMITS.NAME_MAX),
+    photo_url: clampStr(user.photoURL, SCHEMA_LIMITS.PHOTO_MAX),
+    default_title: clampStr(defaultTitle, SCHEMA_LIMITS.DEFAULT_TITLE_MAX),
+    updated_at: new Date().toISOString(),
+  }).eq('id', user.uid);
+  throwIfError(error);
 }
-
-export async function createWorkspace(
-  user: User,
-  name: string,
-  description: string
-): Promise<string> {
-  const workspaceId = generateSafeId('ws');
-  const cleanName = clampStr(name, SCHEMA_LIMITS.NAME_MAX);
-  const cleanDesc = clampStr(description, SCHEMA_LIMITS.WORKSPACE_DESC_MAX);
-  const email = clampStr((user.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-  const displayName = clampStr(user.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
-  const photoURL = clampStr(user.photoURL, SCHEMA_LIMITS.PHOTO_MAX);
-
-  try {
-    const batch = writeBatch(db);
-    batch.set(doc(db, 'workspaces', workspaceId), {
-      id: workspaceId,
-      name: cleanName,
-      description: cleanDesc,
-      ownerUid: user.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    batch.set(doc(db, 'workspaces', workspaceId, 'members', user.uid), {
-      uid: user.uid,
-      email,
-      displayName,
-      photoURL,
-      role: 'owner',
-      inviteId: 'creator',
-      joinedAt: serverTimestamp(),
-    });
-
-    batch.set(doc(db, 'users', user.uid, 'memberships', workspaceId), {
-      workspaceId,
-      workspaceName: cleanName,
-      role: 'owner',
-      ownerUid: user.uid,
-      joinedAt: serverTimestamp(),
-    });
-
-    await batch.commit();
-    return workspaceId;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `workspaces/${workspaceId}`);
-  }
+export async function createWorkspace(user: AppUser, name: string, description: string): Promise<string> {
+  const id = generateSafeId('ws');
+  const { data, error } = await supabase.rpc('create_workspace', {
+    p_id: id,
+    p_name: clampStr(name, SCHEMA_LIMITS.NAME_MAX),
+    p_description: clampStr(description, SCHEMA_LIMITS.WORKSPACE_DESC_MAX),
+  });
+  throwIfError(error);
+  return (data as string) || id;
 }
-
 export async function inviteMemberByGmail(
-  workspace: Workspace,
-  inviter: User,
-  invitedEmailRaw: string,
+  workspace: Workspace, inviter: AppUser, invitedEmailRaw: string,
   role: 'executive' | 'coordinator' | 'member'
 ): Promise<string> {
-  const inviteId = generateSafeId('inv');
-  const invitedEmail = clampStr(invitedEmailRaw.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-  const inviterEmail = clampStr((inviter.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-  const inviterName = clampStr(inviter.displayName || inviterEmail.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
-
-  try {
-    await setDoc(doc(db, 'workspaceInvites', inviteId), {
-      id: inviteId,
-      workspaceId: workspace.id,
-      workspaceName: clampStr(workspace.name, SCHEMA_LIMITS.NAME_MAX),
-      invitedEmail,
-      invitedByUid: inviter.uid,
-      invitedByName: inviterName,
-      invitedByEmail: inviterEmail,
-      role,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    return inviteId;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `workspaceInvites/${inviteId}`);
+  const id = generateSafeId('inv');
+  const { error } = await supabase.from('workspace_invites').insert({
+    id, workspace_id: workspace.id, workspace_name: clampStr(workspace.name, SCHEMA_LIMITS.NAME_MAX),
+    invited_email: clampStr(invitedEmailRaw.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX),
+    invited_by_uid: inviter.uid,
+    invited_by_name: clampStr(inviter.displayName || inviter.email?.split('@')[0], SCHEMA_LIMITS.NAME_MAX),
+    invited_by_email: clampStr(inviter.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX),
+    role, status: 'pending',
+  });
+  throwIfError(error);
+  return id;
+}
+export async function acceptWorkspaceInvite(user: AppUser, invite: WorkspaceInvite): Promise<void> {
+  const { error } = await supabase.rpc('accept_workspace_invite', { p_invite_id: invite.id });
+  throwIfError(error);
+  const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.uid).maybeSingle();
+  const { data: workspace } = await supabase.from('workspaces').select('owner_uid').eq('id', invite.workspaceId).maybeSingle();
+  if (workspace?.owner_uid) {
+    await insertNotification({
+      userId: invite.invitedByUid, workspaceId: invite.workspaceId,
+      workspaceName: invite.workspaceName, itemId: invite.id, itemType: 'invite',
+      title: `${profile?.display_name || user.displayName} به گروه «${invite.workspaceName}» پیوست`,
+      body: `دعوت‌نامه ایمیل (${user.email || ''}) پذیرفته شد.`,
+      sender: user, actionStatus: 'confirmed',
+    }).catch(() => undefined);
   }
 }
-
-export async function acceptWorkspaceInvite(user: User, invite: WorkspaceInvite): Promise<void> {
-  const email = clampStr((user.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-  const displayName = clampStr(user.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
-  const photoURL = clampStr(user.photoURL, SCHEMA_LIMITS.PHOTO_MAX);
-
-  try {
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'workspaceInvites', invite.id), {
-      status: 'accepted',
-      updatedAt: serverTimestamp(),
-    });
-
-    batch.set(doc(db, 'workspaces', invite.workspaceId, 'members', user.uid), {
-      uid: user.uid,
-      email,
-      displayName,
-      photoURL,
-      role: invite.role,
-      inviteId: invite.id,
-      joinedAt: serverTimestamp(),
-    });
-
-    batch.set(doc(db, 'users', user.uid, 'memberships', invite.workspaceId), {
-      workspaceId: invite.workspaceId,
-      workspaceName: clampStr(invite.workspaceName, SCHEMA_LIMITS.NAME_MAX),
-      role: invite.role,
-      ownerUid: invite.invitedByUid,
-      joinedAt: serverTimestamp(),
-    });
-
-    await batch.commit();
-
-    // Notify inviter after membership is established
-    const notifId = generateSafeId('ntf');
-    try {
-      await setDoc(doc(db, 'users', invite.invitedByUid, 'notifications', notifId), {
-        id: notifId,
-        workspaceId: invite.workspaceId,
-        workspaceName: clampStr(invite.workspaceName, SCHEMA_LIMITS.NAME_MAX),
-        itemId: invite.id,
-        itemType: 'invite',
-        title: clampStr(`${displayName} به گروه «${invite.workspaceName}» پیوست`, SCHEMA_LIMITS.NOTIF_TITLE_MAX),
-        body: clampStr(`دعوت‌نامه جیمیل (${email}) تأیید شد و اکنون همگام‌سازی لحظه‌ای فعال است.`, SCHEMA_LIMITS.NOTIF_BODY_MAX),
-        senderUid: user.uid,
-        senderName: displayName,
-        senderEmail: email,
-        read: false,
-        actionStatus: 'confirmed',
-        createdAt: serverTimestamp(),
-      });
-    } catch {
-      // Non-critical if inviter left workspace
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `workspaceInvites/${invite.id}`);
-  }
-}
-
 export async function declineWorkspaceInvite(inviteId: string): Promise<void> {
-  try {
-    await updateDoc(doc(db, 'workspaceInvites', inviteId), {
-      status: 'declined',
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `workspaceInvites/${inviteId}`);
-  }
+  const { error } = await supabase.rpc('decline_workspace_invite', { p_invite_id: inviteId });
+  throwIfError(error);
 }
-
-export async function updateMemberRole(
-  workspaceId: string,
-  memberUid: string,
-  role: 'executive' | 'coordinator' | 'member'
-): Promise<void> {
-  const path = `workspaces/${workspaceId}/members/${memberUid}`;
-  try {
-    await updateDoc(doc(db, 'workspaces', workspaceId, 'members', memberUid), {
-      role,
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
+export async function updateMemberRole(workspaceId: string, memberUid: string, role: 'executive' | 'coordinator' | 'member'): Promise<void> {
+  const { error } = await supabase.rpc('update_workspace_member_role', {
+    p_workspace_id: workspaceId, p_user_id: memberUid, p_role: role,
+  });
+  throwIfError(error);
 }
-
 export async function removeWorkspaceMember(workspaceId: string, memberUid: string): Promise<void> {
-  const path = `workspaces/${workspaceId}/members/${memberUid}`;
-  try {
-    const batch = writeBatch(db);
-    batch.delete(doc(db, 'workspaces', workspaceId, 'members', memberUid));
-    batch.delete(doc(db, 'users', memberUid, 'memberships', workspaceId));
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-  }
+  const { error } = await supabase.rpc('remove_workspace_member', {
+    p_workspace_id: workspaceId, p_user_id: memberUid,
+  });
+  throwIfError(error);
 }
-
 export interface SaveItemInput {
-  type: ItemType;
-  title: string;
-  description: string;
-  jalaliDate: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  meetingLink: string;
-  priority: ItemPriority;
-  status: ItemStatus;
-  assigneeEmail: string;
-  assigneeName: string;
-  assigneeUid: string;
-  agenda: string;
-  minutes: string;
-  checklist: ChecklistItem[];
-  notifyMembers: boolean;
-  reminderMinutes: number;
+  type: ItemType; title: string; description: string; jalaliDate: string;
+  startTime: string; endTime: string; location: string; meetingLink: string;
+  priority: ItemPriority; status: ItemStatus; assigneeEmail: string; assigneeName: string;
+  assigneeUid: string; agenda: string; minutes: string; checklist: ChecklistItem[];
+  notifyMembers: boolean; reminderMinutes: number;
 }
-
+function itemPayload(workspace: Workspace, user: AppUser, input: SaveItemInput) {
+  const email = clampStr(user.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
+  const name = clampStr(user.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
+  return {
+    workspace_id: workspace.id, type: input.type,
+    title: clampStr(input.title, SCHEMA_LIMITS.TITLE_MAX),
+    description: clampStr(input.description, SCHEMA_LIMITS.DESC_MAX),
+    jalali_date: input.jalaliDate, gregorian_date: jalaliToGregorianStr(input.jalaliDate),
+    start_time: clampStr(input.startTime, 5), end_time: clampStr(input.endTime, 5),
+    location: clampStr(input.location, SCHEMA_LIMITS.LOCATION_MAX),
+    meeting_link: clampStr(input.meetingLink, SCHEMA_LIMITS.LINK_MAX),
+    priority: input.priority, status: input.status,
+    assignee_email: clampStr(input.assigneeEmail, SCHEMA_LIMITS.EMAIL_MAX),
+    assignee_name: clampStr(input.assigneeName, SCHEMA_LIMITS.NAME_MAX),
+    assignee_uid: clampStr(input.assigneeUid, SCHEMA_LIMITS.ID_MAX),
+    agenda: clampStr(input.agenda, SCHEMA_LIMITS.AGENDA_MAX),
+    minutes: clampStr(input.minutes, SCHEMA_LIMITS.MINUTES_MAX),
+    checklist: input.checklist.slice(0, SCHEMA_LIMITS.CHECKLIST_MAX).map(c => ({
+      id: clampStr(c.id, 64), text: clampStr(c.text, SCHEMA_LIMITS.CHECKLIST_TEXT_MAX), done: Boolean(c.done),
+    })),
+    notify_members: input.notifyMembers,
+    reminder_minutes: Math.max(0, Math.min(1440, Math.round(input.reminderMinutes))),
+    updated_at: new Date().toISOString(),
+    ...(!undefined && {}),
+  };
+}
+async function insertNotification(args: {
+  userId: string; workspaceId: string; workspaceName: string; itemId: string;
+  itemType: ItemType | 'invite' | 'system'; title: string; body: string;
+  sender: AppUser; actionStatus?: NotificationActionStatus;
+}) {
+  const { error } = await supabase.from('user_notifications').insert({
+    id: generateSafeId('ntf'), user_id: args.userId,
+    workspace_id: args.workspaceId, workspace_name: clampStr(args.workspaceName, SCHEMA_LIMITS.NAME_MAX),
+    item_id: args.itemId, item_type: args.itemType,
+    title: clampStr(args.title, SCHEMA_LIMITS.NOTIF_TITLE_MAX),
+    body: clampStr(args.body, SCHEMA_LIMITS.NOTIF_BODY_MAX),
+    sender_uid: args.sender.uid, sender_name: clampStr(args.sender.displayName, SCHEMA_LIMITS.NAME_MAX),
+    sender_email: clampStr(args.sender.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX),
+    read: false, action_status: args.actionStatus || 'pending',
+  });
+  throwIfError(error);
+}
 export async function saveWorkspaceItem(
-  workspace: Workspace,
-  members: WorkspaceMember[],
-  currentUser: User,
-  input: SaveItemInput,
-  existingItem?: WorkspaceItem | null
+  workspace: Workspace, members: WorkspaceMember[], currentUser: AppUser,
+  input: SaveItemInput, existingItem?: WorkspaceItem | null
 ): Promise<string> {
-  const itemId = existingItem?.id ?? generateSafeId('itm');
-  const path = `workspaces/${workspace.id}/items/${itemId}`;
-  const gregorianDate = jalaliToGregorianStr(input.jalaliDate);
-  const sanitizedChecklist = input.checklist.slice(0, SCHEMA_LIMITS.CHECKLIST_MAX).map((c) => ({
-    id: clampStr(c.id, 64),
-    text: clampStr(c.text, SCHEMA_LIMITS.CHECKLIST_TEXT_MAX),
-    done: Boolean(c.done),
-  }));
-
-  const creatorEmail = clampStr((currentUser.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-  const creatorName = clampStr(
-    currentUser.displayName || creatorEmail.split('@')[0],
-    SCHEMA_LIMITS.NAME_MAX
-  );
-
-  try {
-    if (existingItem) {
-      await updateDoc(doc(db, 'workspaces', workspace.id, 'items', itemId), {
-        type: input.type,
-        title: clampStr(input.title, SCHEMA_LIMITS.TITLE_MAX),
-        description: clampStr(input.description, SCHEMA_LIMITS.DESC_MAX),
-        jalaliDate: input.jalaliDate,
-        gregorianDate,
-        startTime: clampStr(input.startTime, 5),
-        endTime: clampStr(input.endTime, 5),
-        location: clampStr(input.location, SCHEMA_LIMITS.LOCATION_MAX),
-        meetingLink: clampStr(input.meetingLink, SCHEMA_LIMITS.LINK_MAX),
-        priority: input.priority,
-        status: input.status,
-        assigneeEmail: clampStr(input.assigneeEmail, SCHEMA_LIMITS.EMAIL_MAX),
-        assigneeName: clampStr(input.assigneeName, SCHEMA_LIMITS.NAME_MAX),
-        assigneeUid: clampStr(input.assigneeUid, SCHEMA_LIMITS.ID_MAX),
-        agenda: clampStr(input.agenda, SCHEMA_LIMITS.AGENDA_MAX),
-        minutes: clampStr(input.minutes, SCHEMA_LIMITS.MINUTES_MAX),
-        checklist: sanitizedChecklist,
-        notifyMembers: input.notifyMembers,
-        reminderMinutes: Math.max(0, Math.min(1440, Math.round(input.reminderMinutes))),
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      await setDoc(doc(db, 'workspaces', workspace.id, 'items', itemId), {
-        id: itemId,
-        workspaceId: workspace.id,
-        type: input.type,
-        title: clampStr(input.title, SCHEMA_LIMITS.TITLE_MAX),
-        description: clampStr(input.description, SCHEMA_LIMITS.DESC_MAX),
-        jalaliDate: input.jalaliDate,
-        gregorianDate,
-        startTime: clampStr(input.startTime, 5),
-        endTime: clampStr(input.endTime, 5),
-        location: clampStr(input.location, SCHEMA_LIMITS.LOCATION_MAX),
-        meetingLink: clampStr(input.meetingLink, SCHEMA_LIMITS.LINK_MAX),
-        priority: input.priority,
-        status: input.status,
-        assigneeEmail: clampStr(input.assigneeEmail, SCHEMA_LIMITS.EMAIL_MAX),
-        assigneeName: clampStr(input.assigneeName, SCHEMA_LIMITS.NAME_MAX),
-        assigneeUid: clampStr(input.assigneeUid, SCHEMA_LIMITS.ID_MAX),
-        agenda: clampStr(input.agenda, SCHEMA_LIMITS.AGENDA_MAX),
-        minutes: clampStr(input.minutes, SCHEMA_LIMITS.MINUTES_MAX),
-        checklist: sanitizedChecklist,
-        confirmedUids: [currentUser.uid],
-        declinedUids: [],
-        notifyMembers: input.notifyMembers,
-        reminderMinutes: Math.max(0, Math.min(1440, Math.round(input.reminderMinutes))),
-        createdByUid: currentUser.uid,
-        createdByName: creatorName,
-        createdByEmail: creatorEmail,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    if (input.notifyMembers) {
-      const otherMembers = members.filter((m) => m.uid !== currentUser.uid);
-      if (otherMembers.length > 0) {
-        const typeLabel = ITEM_TYPE_LABELS[input.type];
-        const verb = existingItem ? 'به‌روزرسانی شد' : 'ثبت شد';
-        const timeText = input.startTime ? ` · ساعت ${toPersianDigits(input.startTime)}` : '';
-        const notifTitle = clampStr(
-          `${typeLabel} جدید: ${input.title}`,
-          SCHEMA_LIMITS.NOTIF_TITLE_MAX
-        );
-        const notifBody = clampStr(
-          `${creatorName} این ${typeLabel} را برای تاریخ ${toPersianDigits(input.jalaliDate)}${timeText} ${verb}.${input.location ? ` محل: ${input.location}` : ''}`,
-          SCHEMA_LIMITS.NOTIF_BODY_MAX
-        );
-
-        const batch = writeBatch(db);
-        for (const member of otherMembers) {
-          const notifId = generateSafeId('ntf');
-          batch.set(doc(db, 'users', member.uid, 'notifications', notifId), {
-            id: notifId,
-            workspaceId: workspace.id,
-            workspaceName: clampStr(workspace.name, SCHEMA_LIMITS.NAME_MAX),
-            itemId,
-            itemType: input.type,
-            title: notifTitle,
-            body: notifBody,
-            senderUid: currentUser.uid,
-            senderName: creatorName,
-            senderEmail: creatorEmail,
-            read: false,
-            actionStatus: 'pending',
-            createdAt: serverTimestamp(),
-          });
-        }
-        await batch.commit();
-      }
-    }
-
-    return itemId;
-  } catch (error) {
-    handleFirestoreError(error, existingItem ? OperationType.UPDATE : OperationType.CREATE, path);
-  }
-}
-
-export async function updateItemStatus(
-  workspace: Workspace,
-  members: WorkspaceMember[],
-  currentUser: User,
-  item: WorkspaceItem,
-  status: ItemStatus
-): Promise<void> {
-  const path = `workspaces/${workspace.id}/items/${item.id}`;
-  try {
-    await updateDoc(doc(db, 'workspaces', workspace.id, 'items', item.id), {
-      status,
-      updatedAt: serverTimestamp(),
-    });
-
-    if (status === 'completed' || status === 'cancelled') {
-      const others = members.filter((m) => m.uid !== currentUser.uid);
-      if (others.length > 0) {
-        const actorName = clampStr(
-          currentUser.displayName || currentUser.email?.split('@')[0] || 'همکار',
-          SCHEMA_LIMITS.NAME_MAX
-        );
-        const actorEmail = clampStr((currentUser.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-        const stateLabel = status === 'completed' ? 'تکمیل شد' : 'لغو شد';
-        const batch = writeBatch(db);
-        for (const m of others) {
-          const notifId = generateSafeId('ntf');
-          batch.set(doc(db, 'users', m.uid, 'notifications', notifId), {
-            id: notifId,
-            workspaceId: workspace.id,
-            workspaceName: clampStr(workspace.name, SCHEMA_LIMITS.NAME_MAX),
-            itemId: item.id,
-            itemType: item.type,
-            title: clampStr(`${item.title} — ${stateLabel}`, SCHEMA_LIMITS.NOTIF_TITLE_MAX),
-            body: clampStr(`${actorName} وضعیت این مورد را به «${stateLabel}» تغییر داد.`, SCHEMA_LIMITS.NOTIF_BODY_MAX),
-            senderUid: currentUser.uid,
-            senderName: actorName,
-            senderEmail: actorEmail,
-            read: false,
-            actionStatus: status === 'completed' ? 'done' : 'none',
-            createdAt: serverTimestamp(),
-          });
-        }
-        await batch.commit();
-      }
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function respondToItemAttendance(
-  workspace: Workspace,
-  members: WorkspaceMember[],
-  currentUser: User,
-  item: WorkspaceItem,
-  response: 'accepted' | 'declined'
-): Promise<void> {
-  const path = `workspaces/${workspace.id}/items/${item.id}`;
-  const confirmed = new Set(item.confirmedUids || []);
-  const declined = new Set(item.declinedUids || []);
-
-  if (response === 'accepted') {
-    confirmed.add(currentUser.uid);
-    declined.delete(currentUser.uid);
+  const id = existingItem?.id ?? generateSafeId('itm');
+  const email = clampStr(currentUser.email?.toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
+  const name = clampStr(currentUser.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
+  const payload = itemPayload(workspace, currentUser, input);
+  if (existingItem) {
+    const { error } = await supabase.from('workspace_items').update(payload).eq('id', id).eq('workspace_id', workspace.id);
+    throwIfError(error);
   } else {
-    declined.add(currentUser.uid);
-    confirmed.delete(currentUser.uid);
-  }
-
-  try {
-    await updateDoc(doc(db, 'workspaces', workspace.id, 'items', item.id), {
-      confirmedUids: Array.from(confirmed).slice(0, SCHEMA_LIMITS.UID_LIST_MAX),
-      declinedUids: Array.from(declined).slice(0, SCHEMA_LIMITS.UID_LIST_MAX),
-      updatedAt: serverTimestamp(),
+    const { error } = await supabase.from('workspace_items').insert({
+      id, ...payload, confirmed_uids: [currentUser.uid], declined_uids: [],
+      created_by_uid: currentUser.uid, created_by_name: name, created_by_email: email,
     });
-
-    if (item.createdByUid !== currentUser.uid && members.some((m) => m.uid === item.createdByUid)) {
-      const actorName = clampStr(
-        currentUser.displayName || currentUser.email?.split('@')[0] || 'همکار',
-        SCHEMA_LIMITS.NAME_MAX
-      );
-      const actorEmail = clampStr((currentUser.email ?? '').toLowerCase(), SCHEMA_LIMITS.EMAIL_MAX);
-      const notifId = generateSafeId('ntf');
-      const verb = response === 'accepted' ? 'حضور و رؤیت را تأیید کرد' : 'عدم امکان حضور را اعلام کرد';
-      await setDoc(doc(db, 'users', item.createdByUid, 'notifications', notifId), {
-        id: notifId,
-        workspaceId: workspace.id,
-        workspaceName: clampStr(workspace.name, SCHEMA_LIMITS.NAME_MAX),
-        itemId: item.id,
-        itemType: item.type,
-        title: clampStr(`پاسخ ${actorName} به «${item.title}»`, SCHEMA_LIMITS.NOTIF_TITLE_MAX),
-        body: clampStr(`${actorName} ${verb}.`, SCHEMA_LIMITS.NOTIF_BODY_MAX),
-        senderUid: currentUser.uid,
-        senderName: actorName,
-        senderEmail: actorEmail,
-        read: false,
-        actionStatus: response === 'accepted' ? 'confirmed' : 'declined',
-        createdAt: serverTimestamp(),
-      });
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+    throwIfError(error);
+  }
+  if (input.notifyMembers) {
+    const label = ITEM_TYPE_LABELS[input.type];
+    const time = input.startTime ? ` · ساعت ${toPersianDigits(input.startTime)}` : '';
+    await Promise.all(members.filter(m => m.uid !== currentUser.uid).map(m =>
+      insertNotification({
+        userId: m.uid, workspaceId: workspace.id, workspaceName: workspace.name,
+        itemId: id, itemType: input.type,
+        title: `${label} جدید: ${input.title}`,
+        body: `${name} این ${label} را برای تاریخ ${toPersianDigits(input.jalaliDate)}${time} ${existingItem ? 'به‌روزرسانی کرد' : 'ثبت کرد'}.${input.location ? ` محل: ${input.location}` : ''}`,
+        sender: currentUser,
+      })
+    ));
+  }
+  return id;
+}
+export async function updateItemStatus(workspace: Workspace, members: WorkspaceMember[], user: AppUser, item: WorkspaceItem, status: ItemStatus): Promise<void> {
+  const { error } = await supabase.from('workspace_items').update({ status, updated_at: new Date().toISOString() }).eq('id', item.id).eq('workspace_id', workspace.id);
+  throwIfError(error);
+  if (status === 'completed' || status === 'cancelled') {
+    const label = status === 'completed' ? 'تکمیل شد' : 'لغو شد';
+    await Promise.all(members.filter(m => m.uid !== user.uid).map(m => insertNotification({
+      userId: m.uid, workspaceId: workspace.id, workspaceName: workspace.name,
+      itemId: item.id, itemType: item.type, title: `${item.title} — ${label}`,
+      body: `${user.displayName || 'همکار'} وضعیت این مورد را به «${label}» تغییر داد.`,
+      sender: user, actionStatus: status === 'completed' ? 'done' : 'none',
+    })));
   }
 }
-
-export async function toggleItemChecklist(
-  workspaceId: string,
-  item: WorkspaceItem,
-  checklistId: string
-): Promise<void> {
-  const path = `workspaces/${workspaceId}/items/${item.id}`;
-  const updated = item.checklist.map((entry) =>
-    entry.id === checklistId ? { ...entry, done: !entry.done } : entry
-  );
-  try {
-    await updateDoc(doc(db, 'workspaces', workspaceId, 'items', item.id), {
-      checklist: updated,
-      updatedAt: serverTimestamp(),
+export async function respondToItemAttendance(workspace: Workspace, members: WorkspaceMember[], user: AppUser, item: WorkspaceItem, response: 'accepted' | 'declined'): Promise<void> {
+  const confirmed = new Set(item.confirmedUids || []), declined = new Set(item.declinedUids || []);
+  if (response === 'accepted') { confirmed.add(user.uid); declined.delete(user.uid); }
+  else { declined.add(user.uid); confirmed.delete(user.uid); }
+  const { error } = await supabase.from('workspace_items').update({
+    confirmed_uids: Array.from(confirmed).slice(0, SCHEMA_LIMITS.UID_LIST_MAX),
+    declined_uids: Array.from(declined).slice(0, SCHEMA_LIMITS.UID_LIST_MAX),
+    updated_at: new Date().toISOString(),
+  }).eq('id', item.id).eq('workspace_id', workspace.id);
+  throwIfError(error);
+  if (item.createdByUid !== user.uid && members.some(m => m.uid === item.createdByUid)) {
+    await insertNotification({
+      userId: item.createdByUid, workspaceId: workspace.id, workspaceName: workspace.name,
+      itemId: item.id, itemType: item.type,
+      title: `پاسخ ${user.displayName || 'همکار'} به «${item.title}»`,
+      body: response === 'accepted' ? 'حضور و رؤیت را تأیید کرد.' : 'عدم امکان حضور را اعلام کرد.',
+      sender: user, actionStatus: response === 'accepted' ? 'confirmed' : 'declined',
     });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
-
-export async function updateItemMinutes(
-  workspaceId: string,
-  itemId: string,
-  minutes: string
-): Promise<void> {
-  const path = `workspaces/${workspaceId}/items/${itemId}`;
-  try {
-    await updateDoc(doc(db, 'workspaces', workspaceId, 'items', itemId), {
-      minutes: clampStr(minutes, SCHEMA_LIMITS.MINUTES_MAX),
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
+export async function toggleItemChecklist(workspaceId: string, item: WorkspaceItem, checklistId: string): Promise<void> {
+  const checklist = item.checklist.map(entry => entry.id === checklistId ? { ...entry, done: !entry.done } : entry);
+  const { error } = await supabase.from('workspace_items').update({ checklist, updated_at: new Date().toISOString() }).eq('id', item.id).eq('workspace_id', workspaceId);
+  throwIfError(error);
 }
-
+export async function updateItemMinutes(workspaceId: string, itemId: string, minutes: string): Promise<void> {
+  const { error } = await supabase.from('workspace_items').update({
+    minutes: clampStr(minutes, SCHEMA_LIMITS.MINUTES_MAX), updated_at: new Date().toISOString(),
+  }).eq('id', itemId).eq('workspace_id', workspaceId);
+  throwIfError(error);
+}
 export async function deleteWorkspaceItem(workspaceId: string, itemId: string): Promise<void> {
-  const path = `workspaces/${workspaceId}/items/${itemId}`;
-  try {
-    await deleteDoc(doc(db, 'workspaces', workspaceId, 'items', itemId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-  }
+  const { error } = await supabase.from('workspace_items').delete().eq('id', itemId).eq('workspace_id', workspaceId);
+  throwIfError(error);
 }
-
-export async function markNotificationRead(
-  userId: string,
-  notificationId: string,
-  actionStatus?: NotificationActionStatus
-): Promise<void> {
-  const path = `users/${userId}/notifications/${notificationId}`;
-  try {
-    const payload: { read: boolean; actionStatus?: NotificationActionStatus } = { read: true };
-    if (actionStatus) payload.actionStatus = actionStatus;
-    await updateDoc(doc(db, 'users', userId, 'notifications', notificationId), payload);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
+export async function markNotificationRead(userId: string, notificationId: string, actionStatus?: NotificationActionStatus): Promise<void> {
+  const payload: { read: boolean; action_status?: NotificationActionStatus } = { read: true };
+  if (actionStatus) payload.action_status = actionStatus;
+  const { error } = await supabase.from('user_notifications').update(payload).eq('user_id', userId).eq('id', notificationId);
+  throwIfError(error);
 }
-
 export async function deleteNotification(userId: string, notificationId: string): Promise<void> {
-  const path = `users/${userId}/notifications/${notificationId}`;
-  try {
-    await deleteDoc(doc(db, 'users', userId, 'notifications', notificationId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-  }
+  const { error } = await supabase.from('user_notifications').delete().eq('user_id', userId).eq('id', notificationId);
+  throwIfError(error);
 }
-
 export function getRoleDisplayLabel(role: WorkspaceRole): string {
   switch (role) {
-    case 'owner':
-      return 'مالک و مدیر گروه';
-    case 'executive':
-      return 'رییس / مدیر ارشد';
-    case 'coordinator':
-      return 'مسئول دفتر / هماهنگ‌کننده';
-    default:
-      return 'عضو تیم';
+    case 'owner': return 'مالک و مدیر گروه';
+    case 'executive': return 'رییس / مدیر ارشد';
+    case 'coordinator': return 'مسئول دفتر / هماهنگ‌کننده';
+    default: return 'عضو تیم';
   }
 }

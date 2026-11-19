@@ -40,7 +40,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onClose,
   onEdit,
 }) => {
-  const { activeWorkspace, members, user } = useApp();
+  const { activeWorkspace, members, user, removeItemLocally } = useApp();
   const [minutesDraft, setMinutesDraft] = useState(item.minutes || '');
   const [savingMinutes, setSavingMinutes] = useState(false);
   const [minutesSaved, setMinutesSaved] = useState(false);
@@ -65,6 +65,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   const handleDelete = async () => {
     await deleteWorkspaceItem(activeWorkspace.id, item.id);
+    removeItemLocally(item.id);
     onClose();
   };
 

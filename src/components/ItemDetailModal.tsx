@@ -47,6 +47,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const [minutesSaved, setMinutesSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [canDeleteItems, setCanDeleteItems] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeWorkspace || !user) { setCanDeleteItems(false); return; }
@@ -57,7 +59,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
         if (alive) setCanDeleteItems(activeWorkspace.ownerUid === user.uid || members.some(member => member.uid === user.uid && ['executive', 'coordinator'].includes(member.role)));
       });
     return () => { alive = false; };
-  }, [activeWorkspace?.id, user?.uid]);
+  }, [activeWorkspace?.id, user?.uid, members]);
 
   if (!activeWorkspace || !user) return null;
 
@@ -78,9 +80,16 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   };
 
   const handleDelete = async () => {
-    await deleteWorkspaceItem(activeWorkspace.id, item.id);
-    removeItemLocally(item.id);
-    onClose();
+    setDeletingItem(true); setDeleteError(null);
+    try {
+      await deleteWorkspaceItem(activeWorkspace.id, item.id);
+      removeItemLocally(item.id);
+      onClose();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'حذف مورد انجام نشد.');
+    } finally {
+      setDeletingItem(false);
+    }
   };
 
   const confirmedMembers = members.filter((m) => (item.confirmedUids || []).includes(m.uid));
@@ -368,14 +377,15 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 حذف این مورد
               </button>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-red-600 font-semibold">مطمئن هستید؟</span>
                 <button
                   type="button"
-                  onClick={handleDelete}
-                  className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold"
+                  disabled={deletingItem}
+                  onClick={() => void handleDelete()}
+                  className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold disabled:opacity-50"
                 >
-                  بله، حذف شود
+                  {deletingItem ? 'در حال حذف...' : 'بله، حذف شود'}
                 </button>
                 <button
                   type="button"
@@ -386,6 +396,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 </button>
               </div>
             )}
+            {deleteError && <p role="alert" className="w-full text-xs text-red-600">{deleteError}</p>}
           </div>}
         </div>
       </div>

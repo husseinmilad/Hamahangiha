@@ -135,7 +135,7 @@ declare
   v_uid text;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  if p_response not in ('accepted', 'declined') then raise exception 'Invalid response'; end if;
+  if p_response is null or p_response not in ('accepted', 'declined') then raise exception 'Invalid response'; end if;
   if not public.is_workspace_member(p_workspace_id) then raise exception 'Workspace membership required'; end if;
   v_uid := auth.uid()::text;
 

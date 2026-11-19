@@ -118,3 +118,45 @@ grant execute on function public.update_workspace_member_role(text, uuid, public
 grant execute on function public.remove_workspace_member(text, uuid) to authenticated;
 
 commit;
+
+
+-- Members may respond to attendance without receiving broad UPDATE rights on items.
+create or replace function public.respond_to_workspace_item(
+  p_workspace_id text,
+  p_item_id text,
+  p_response text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid text;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if p_response not in ('accepted', 'declined') then raise exception 'Invalid response'; end if;
+  if not public.is_workspace_member(p_workspace_id) then raise exception 'Workspace membership required'; end if;
+  v_uid := auth.uid()::text;
+
+  update public.workspace_items
+  set
+    confirmed_uids = case
+      when p_response = 'accepted' then
+        case when v_uid = any(confirmed_uids) then confirmed_uids else array_append(confirmed_uids, v_uid) end
+      else array_remove(confirmed_uids, v_uid)
+    end,
+    declined_uids = case
+      when p_response = 'declined' then
+        case when v_uid = any(declined_uids) then declined_uids else array_append(declined_uids, v_uid) end
+      else array_remove(declined_uids, v_uid)
+    end,
+    updated_at = now()
+  where id = p_item_id and workspace_id = p_workspace_id;
+
+  if not found then raise exception 'Item not found'; end if;
+end;
+$$;
+
+revoke all on function public.respond_to_workspace_item(text, text, text) from public;
+grant execute on function public.respond_to_workspace_item(text, text, text) to authenticated;

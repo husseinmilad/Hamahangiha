@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithCredential, signInWithCustomToken, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithCustomToken, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {

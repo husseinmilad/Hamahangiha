@@ -1,4 +1,3 @@
-const { getApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');

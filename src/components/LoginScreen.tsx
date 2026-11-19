@@ -39,7 +39,7 @@ export const LoginScreen: React.FC = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
       <header className="w-full max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <img src="/icon.svg" alt="نشان هماهنگی" className="w-9 h-9 rounded-xl shrink-0" />
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="نشان هماهنگی" className="w-9 h-9 rounded-xl shrink-0" />
           <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">هماهنگی</span>
         </div>
         <PWAInstallButton variant="compact" />

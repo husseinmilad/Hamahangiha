@@ -43,6 +43,11 @@ exports.googleAuthExchange = onRequest(
           res.status(403).json({ error: 'account_disabled' });
           return;
         }
+        const googleProvider = user.providerData.find((provider) => provider.providerId === 'google.com');
+        if (!googleProvider || googleProvider.uid !== claims.sub) {
+          res.status(409).json({ error: 'account_identity_conflict' });
+          return;
+        }
       } catch (error) {
         if (error.code !== 'auth/user-not-found') throw error;
         user = await auth.createUser({

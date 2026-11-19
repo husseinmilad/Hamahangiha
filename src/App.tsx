@@ -22,7 +22,6 @@ import { NotificationsView } from './components/NotificationsView';
 import { ItemFormModal } from './components/ItemFormModal';
 import { ItemDetailModal } from './components/ItemDetailModal';
 import { LiveToast } from './components/LiveToast';
-import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ItemType, WorkspaceItem } from './types/hamahangi';
@@ -169,8 +168,6 @@ const MainShell: React.FC = () => {
           </div>
 
           <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-            <PWAInstallButton variant="full" />
-
             <div className="flex items-center gap-2.5 px-1">
               {user.photoURL ? (
                 <img
@@ -226,10 +223,6 @@ const MainShell: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:block">
-              <PWAInstallButton variant="compact" />
-            </div>
-
             <button
               onClick={toggleTheme}
               className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"

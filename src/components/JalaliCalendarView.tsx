@@ -38,7 +38,7 @@ import {
 } from '../lib/weeklyImageExport';
 import { ITEM_TYPE_LABELS, WorkspaceItem } from '../types/hamahangi';
 import { ItemCard } from './ItemCard';
-import { respondToItemAttendance, updateItemStatus } from '../services/firestoreService';
+import { respondToItemAttendance, updateItemStatus } from '../services/supabaseService';
 
 interface JalaliCalendarViewProps {
   onCreateNew: (defaultDate?: string) => void;

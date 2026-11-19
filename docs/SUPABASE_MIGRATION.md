@@ -14,14 +14,15 @@ This branch starts the migration from Firebase to Supabase Cloud. It is intentio
 
 1. [x] Create an isolated migration branch.
 2. [x] Add initial PostgreSQL schema and RLS migration.
-3. [ ] Create a Supabase Cloud project and configure email/password auth.
-4. [ ] Add Supabase JS client and environment variables.
-5. [ ] Replace the Firebase auth UI with email/password sign-up, sign-in and password recovery.
-6. [ ] Replace Firestore listeners and CRUD operations with Postgres queries/realtime.
-7. [ ] Port invitations and workspace membership to secure RPCs / RLS.
-8. [ ] Remove Firebase packages, configuration, rules, functions and messaging worker after parity tests.
-9. [ ] Test web and Android builds; test RLS with multiple users and roles.
-10. [ ] Plan and verify data migration before switching any existing users.
+3. [x] Add follow-up RLS hardening migration (must be applied after the initial schema).
+4. [ ] Configure email/password auth in the Supabase Cloud project.
+5. [ ] Add Supabase JS client and environment variables.
+6. [ ] Replace the Firebase auth UI with email/password sign-up, sign-in and password recovery.
+7. [ ] Replace Firestore listeners and CRUD operations with Postgres queries/realtime.
+8. [ ] Port invitations and workspace membership to secure RPCs / RLS.
+9. [ ] Remove Firebase packages, configuration, rules, functions and messaging worker after parity tests.
+10. [ ] Test web and Android builds; test RLS with multiple users and roles.
+11. [ ] Plan and verify data migration before switching any existing users.
 
 ## Supabase project setup
 
@@ -44,7 +45,11 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
 ```
 
-Apply `supabase/migrations/202611190001_initial_schema.sql` in the Supabase SQL Editor. Review RLS policies before loading any real or sensitive organization data.
+Apply these files in order in the Supabase SQL Editor:
+1. `supabase/migrations/202611190001_initial_schema.sql`
+2. `supabase/migrations/202611190002_security_hardening.sql`
+
+The first migration creates the schema. The second tightens column permissions and invitation, membership, and notification policies. Do not load real or sensitive organization data until RLS has been tested with multiple accounts and roles.
 
 ## Important migration safeguards
 

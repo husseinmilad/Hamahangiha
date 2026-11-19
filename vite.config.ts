@@ -13,7 +13,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
       manifest: {
-        id: '/',
+        id: './',
         name: 'هماهنگی — مدیریت هوشمند جلسات، کارها و رویدادها',
         short_name: 'هماهنگی',
         description: 'اپلیکیشن اندرویدی و تحت وب مدیریت جلسات، کارها و رویدادهای تیمی با تقویم کامل شمسی، فونت وزیر و ورود با ایمیل و رمز عبور',
@@ -23,23 +23,23 @@ export default defineConfig({
         orientation: 'portrait-primary',
         dir: 'rtl',
         lang: 'fa',
-        start_url: '/',
-        scope: '/',
+        start_url: './',
+        scope: './',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: './pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-512x512.png',
+            src: './pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-maskable-512x512.png',
+            src: './pwa-maskable-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

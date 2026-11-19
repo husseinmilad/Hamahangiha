@@ -203,7 +203,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onOpenItem
                   <span>{n.senderName}</span>
                   <span aria-hidden="true">·</span>
                   <span className="tabular-nums">
-                    {formatRelativeTimePersian(n.createdAt?.toDate())}
+                    {formatRelativeTimePersian(n.createdAt ? new Date(n.createdAt) : undefined)}
                   </span>
                   {!n.read && (
                     <>

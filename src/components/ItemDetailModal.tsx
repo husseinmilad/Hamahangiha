@@ -48,6 +48,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   if (!activeWorkspace || !user) return null;
 
+  const canDeleteItems = members.some(m => m.uid === user.uid && ['owner', 'executive', 'coordinator'].includes(m.role));
   const isConfirmedByMe = (item.confirmedUids || []).includes(user.uid);
   const isDeclinedByMe = (item.declinedUids || []).includes(user.uid);
   const holiday = getIranHoliday(item.jalaliDate);
@@ -343,7 +344,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           </div>
 
           {/* Delete */}
-          <div className="pt-2 flex items-center justify-between">
+          {canDeleteItems && <div className="pt-2 flex items-center justify-between">
             {!confirmDelete ? (
               <button
                 type="button"
@@ -372,7 +373,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 </button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
     </div>

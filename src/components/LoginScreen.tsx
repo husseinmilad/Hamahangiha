@@ -17,7 +17,7 @@ export const LoginScreen: React.FC = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setMessage('');
-    if (!email.trim()) { setError('ایمیل را وارد کنید.'); return; }
+    if (mode !== 'update' && !email.trim()) { setError('ایمیل را وارد کنید.'); return; }
     if (mode !== 'reset' && password.length < 6) { setError('رمز عبور باید حداقل ۶ نویسه باشد.'); return; }
     try {
       if (mode === 'signin') await signInWithEmail(email, password);
@@ -58,7 +58,7 @@ export const LoginScreen: React.FC = () => {
           <form onSubmit={submit} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3 shadow-sm">
             <div className="flex items-center justify-between gap-3"><h2 className="font-extrabold text-lg">{title}</h2><LockKeyhole className="w-5 h-5 text-blue-600" /></div>
             {(mode === 'signup') && <label className="block space-y-1"><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">نام نمایشی</span><input value={displayName} onChange={e=>setDisplayName(e.target.value)} autoComplete="name" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-3 text-sm" placeholder="نام و نام خانوادگی" /></label>}
-            <label className="block space-y-1"><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">آدرس ایمیل</span><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" dir="ltr" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-3 text-sm text-left" placeholder="name@example.com" /></label>
+            <label className="block space-y-1"><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">آدرس ایمیل</span><input type="email" required={mode !== "update"} value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" dir="ltr" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-3 text-sm text-left" placeholder="name@example.com" /></label>
             {mode !== 'reset' && <label className="block space-y-1"><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">رمز عبور</span><input type="password" required minLength={6} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} dir="ltr" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-3 text-sm text-left" placeholder="حداقل ۶ نویسه" /></label>}
             {(error || authError) && <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 p-3 text-xs text-red-700 dark:text-red-300">{error || authError}</p>}
             {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 p-3 text-xs text-emerald-700 dark:text-emerald-300">{message}</p>}

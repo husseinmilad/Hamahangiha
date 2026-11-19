@@ -1,15 +1,13 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import firebaseRulesPlugin from '@firebase/eslint-plugin-security-rules';
 
 export default [
   {
-    ignores: ['dist/**/*', 'dev-dist/**/*', 'node_modules/**/*', 'scripts/**/*', 'firestore.rules.test.ts']
+    ignores: ['dist/**/*', 'dev-dist/**/*', 'node_modules/**/*', 'scripts/**/*']
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  firebaseRulesPlugin.configs['flat/recommended'],
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

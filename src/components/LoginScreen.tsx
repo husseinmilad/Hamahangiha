@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BellRing, CalendarDays, CheckCircle2, Loader2, Mail, MessageCircle, ShieldCheck, Users, LockKeyhole, UserRound } from 'lucide-react';
+import { BellRing, CalendarDays, CheckCircle2, Loader2, Mail, MessageCircle, ShieldCheck, Users, LockKeyhole } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import welcomeDeskImage from '../assets/images/hamahangi_welcome_desk_1794938541772.jpg';

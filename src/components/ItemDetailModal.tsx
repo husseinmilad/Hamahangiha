@@ -48,18 +48,20 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [canDeleteItems, setCanDeleteItems] = useState(false);
 
-  if (!activeWorkspace || !user) return null;
-
-  const isConfirmedByMe = (item.confirmedUids || []).includes(user.uid);
-  const isDeclinedByMe = (item.declinedUids || []).includes(user.uid);
-  const holiday = getIranHoliday(item.jalaliDate);
   useEffect(() => {
+    if (!activeWorkspace || !user) { setCanDeleteItems(false); return; }
     let alive = true;
     checkWorkspacePermission(activeWorkspace.id, 'delete_items')
       .then(allowed => { if (alive) setCanDeleteItems(allowed); })
       .catch(() => { if (alive) setCanDeleteItems(false); });
     return () => { alive = false; };
-  }, [activeWorkspace.id, user.uid]);
+  }, [activeWorkspace?.id, user?.uid]);
+
+  if (!activeWorkspace || !user) return null;
+
+  const isConfirmedByMe = (item.confirmedUids || []).includes(user.uid);
+  const isDeclinedByMe = (item.declinedUids || []).includes(user.uid);
+  const holiday = getIranHoliday(item.jalaliDate);
 
 
   const handleSaveMinutes = async () => {

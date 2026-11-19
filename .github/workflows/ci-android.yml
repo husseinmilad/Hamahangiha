@@ -37,11 +37,19 @@ jobs:
         run: npm run lint
       - name: Build web app
         run: npm run build
+      - name: Check Android build credentials
+        run: |
+          if [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::warning::Set the SUPABASE_PUBLISHABLE_KEY GitHub Actions secret to build a functional Android APK. Android packaging will be skipped."
+          fi
       - name: Generate Android project
+        if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
         run: npx cap add android
       - name: Sync Capacitor
+        if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
         run: npx cap sync android
       - name: Add Android local notification permissions
+        if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -57,11 +65,13 @@ jobs:
           path.write_text(content)
           PY
       - name: Build debug APK
+        if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
         working-directory: android
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
       - name: Upload debug APK
+        if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
         uses: actions/upload-artifact@v4
         with:
           name: hamahangi-supabase-debug-apk

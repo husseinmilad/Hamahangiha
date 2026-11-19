@@ -22,15 +22,13 @@ import {
   saveWorkspaceRolePermission,
   WORKSPACE_PERMISSION_OPTIONS,
   DEFAULT_WORKSPACE_PERMISSION_MATRIX,
-  WorkspacePermissionMatrix,
-  ConfigurableWorkspaceRole,
-  WorkspacePermissionKey,
   declineWorkspaceInvite,
   getRoleDisplayLabel,
   inviteMemberByEmail,
   removeWorkspaceMember,
   updateMemberRole,
 } from '../services/supabaseService';
+import type { WorkspacePermissionMatrix, ConfigurableWorkspaceRole, WorkspacePermissionKey } from '../services/supabaseService';
 import { SCHEMA_LIMITS } from '../types/hamahangi';
 import { toPersianDigits } from '../lib/jalali';
 

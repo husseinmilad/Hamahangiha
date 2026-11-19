@@ -89,6 +89,10 @@ export const TeamWorkspaceView: React.FC = () => {
       return;
     }
     let alive = true;
+    const currentRole = members.find(member => member.uid === user.uid)?.role;
+    if (activeWorkspace.ownerUid === user.uid) {
+      setCanInviteMembers(true); setCanManageMembers(true); setCanEditWorkspace(true);
+    }
     Promise.all([
       checkWorkspacePermission(activeWorkspace.id, 'invite_members'),
       checkWorkspacePermission(activeWorkspace.id, 'manage_members'),
@@ -97,7 +101,11 @@ export const TeamWorkspaceView: React.FC = () => {
       if (!alive) return;
       setCanInviteMembers(invite); setCanManageMembers(manage); setCanEditWorkspace(edit);
     }).catch(() => {
-      if (alive) { setCanInviteMembers(false); setCanManageMembers(false); setCanEditWorkspace(false); }
+      if (!alive) return;
+      // Compatibility fallback until the owner applies the new permission migration.
+      setCanInviteMembers(currentRole === 'owner' || currentRole === 'executive' || currentRole === 'coordinator');
+      setCanManageMembers(currentRole === 'owner' || currentRole === 'executive');
+      setCanEditWorkspace(currentRole === 'owner');
     });
     return () => { alive = false; };
   }, [activeWorkspace?.id, user?.uid]);

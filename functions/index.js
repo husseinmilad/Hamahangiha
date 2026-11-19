@@ -91,3 +91,7 @@ exports.sendUserNotificationPush = onDocumentCreated(
     });
   }
 );
+
+// Google Credential Manager -> Firebase Custom Token bridge; Firestore rules remain unchanged.
+const { googleAuthExchange } = require('./google-auth');
+exports.googleAuthExchange = googleAuthExchange;

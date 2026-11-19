@@ -47,7 +47,7 @@ declare
   v_target_role public.workspace_role;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  if p_role not in ('executive', 'coordinator', 'member') then
+  if p_role is null or p_role not in ('executive', 'coordinator', 'member') then
     raise exception 'Invalid target role';
   end if;
   if p_user_id = auth.uid() then raise exception 'Cannot change your own role'; end if;
@@ -64,7 +64,7 @@ begin
   if v_target_role is null then raise exception 'Member not found'; end if;
   if v_target_role = 'owner' then raise exception 'Owner role is protected'; end if;
 
-  if v_actor_role not in ('owner', 'executive') then
+  if coalesce(v_actor_role, 'member'::public.workspace_role) not in ('owner', 'executive') then
     raise exception 'Insufficient permission';
   end if;
 
@@ -102,7 +102,7 @@ begin
   if v_target_role is null then raise exception 'Member not found'; end if;
   if v_target_role = 'owner' then raise exception 'Owner cannot be removed'; end if;
 
-  if v_actor_role not in ('owner', 'executive')
+  if coalesce(v_actor_role, 'member'::public.workspace_role) not in ('owner', 'executive')
      and not (v_actor_role = 'coordinator' and v_target_role = 'member') then
     raise exception 'Insufficient permission';
   end if;

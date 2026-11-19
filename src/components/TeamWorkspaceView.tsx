@@ -67,14 +67,10 @@ export const TeamWorkspaceView: React.FC = () => {
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
-  if (!user) return null;
-
-  const isOwnerOrAdmin = members.some(
-    (m) =>
-      m.uid === user.uid &&
-      (m.role === 'owner' || m.role === 'executive' || m.role === 'coordinator')
-  );
-  const isOwner = activeWorkspace?.ownerUid === user.uid;
+  const isOwner = Boolean(user && activeWorkspace?.ownerUid === user.uid);
+  const isOwnerOrAdmin = Boolean(user && members.some(
+    (m) => m.uid === user.uid && (m.role === 'owner' || m.role === 'executive' || m.role === 'coordinator')
+  ));
 
   useEffect(() => {
     if (!activeWorkspace || !isOwner) return;
@@ -86,6 +82,8 @@ export const TeamWorkspaceView: React.FC = () => {
       .finally(() => { if (alive) setPermissionsLoading(false); });
     return () => { alive = false; };
   }, [activeWorkspace?.id, isOwner]);
+
+  if (!user) return null;
 
   const handlePermissionChange = async (key: WorkspacePermissionKey, allowed: boolean) => {
     if (!activeWorkspace) return;

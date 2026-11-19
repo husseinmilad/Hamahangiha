@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BellRing, CalendarDays, CheckCircle2, Loader2, Mail, MessageCircle, ShieldCheck, Users, LockKeyhole } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -14,6 +14,8 @@ export const LoginScreen: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => { if (passwordRecovery) setMode('update'); }, [passwordRecovery]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setMessage('');

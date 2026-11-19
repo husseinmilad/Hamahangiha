@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CalendarOff,
   Check,
@@ -21,6 +21,7 @@ import {
 import { formatJalaliPretty, toPersianDigits } from '../lib/jalali';
 import { getIranHoliday } from '../lib/iranHolidays';
 import { useApp } from '../context/AppContext';
+import { checkWorkspacePermission } from '../services/supabaseService';
 import {
   deleteWorkspaceItem,
   respondToItemAttendance,
@@ -45,13 +46,21 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const [savingMinutes, setSavingMinutes] = useState(false);
   const [minutesSaved, setMinutesSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [canDeleteItems, setCanDeleteItems] = useState(false);
 
   if (!activeWorkspace || !user) return null;
 
-  const canDeleteItems = members.some(m => m.uid === user.uid && ['owner', 'executive', 'coordinator'].includes(m.role));
   const isConfirmedByMe = (item.confirmedUids || []).includes(user.uid);
   const isDeclinedByMe = (item.declinedUids || []).includes(user.uid);
   const holiday = getIranHoliday(item.jalaliDate);
+  useEffect(() => {
+    let alive = true;
+    checkWorkspacePermission(activeWorkspace.id, 'delete_items')
+      .then(allowed => { if (alive) setCanDeleteItems(allowed); })
+      .catch(() => { if (alive) setCanDeleteItems(false); });
+    return () => { alive = false; };
+  }, [activeWorkspace.id, user.uid]);
+
 
   const handleSaveMinutes = async () => {
     setSavingMinutes(true);

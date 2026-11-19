@@ -101,7 +101,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const initialNotifBatchRef = useRef(true);
   const firedReminderKeysRef = useRef<Set<string>>(new Set());
 
-  const setActiveWorkspaceId = useCallback((id: string) => {
+  const setActiveWorkspaceId = useCallback((id: string | null) => {
     setActiveWorkspaceIdState(id || null);
     if (id) localStorage.setItem('hamahangi_active_ws', id);
     else localStorage.removeItem('hamahangi_active_ws');

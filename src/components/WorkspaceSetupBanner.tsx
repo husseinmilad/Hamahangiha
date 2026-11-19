@@ -42,7 +42,7 @@ export const WorkspaceSetupBanner: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              دعوت‌نامه اتصال به گروه کاری برای جیمیل شما
+              دعوت‌نامه اتصال به گروه کاری برای ایمیل شما
             </h2>
           </div>
           <div className="space-y-3">
@@ -109,7 +109,7 @@ export const WorkspaceSetupBanner: React.FC = () => {
               ساخت اولین گروه کاری مشترک
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-              یک گروه کاری بسازید (مثلاً «دفتر رییس و مسئول دفتر») و سپس همکار خود را با آدرس جیمیل دعوت کنید تا جلسات و کارها به‌صورت لحظه‌ای بین گوشی‌های شما همگام شود.
+              یک گروه کاری بسازید (مثلاً «دفتر رییس و مسئول دفتر») و سپس همکار خود را با آدرس ایمیل دعوت کنید تا جلسات و کارها به‌صورت لحظه‌ای بین گوشی‌های شما همگام شود.
             </p>
           </div>
         </div>
@@ -160,7 +160,7 @@ export const WorkspaceSetupBanner: React.FC = () => {
 
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <UserPlus className="w-4 h-4 text-slate-400 shrink-0" />
-          <span>اگر همکارتان قبلاً گروهی ساخته، کافی است شما را با جیمیل «{user.email}» دعوت کند تا همین‌جا نمایش داده شود.</span>
+          <span>اگر همکارتان قبلاً گروهی ساخته، کافی است شما را با ایمیل «{user.email}» دعوت کند تا همین‌جا نمایش داده شود.</span>
         </div>
       </section>
     </div>

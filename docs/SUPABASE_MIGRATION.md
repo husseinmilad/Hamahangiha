@@ -49,8 +49,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 1. `supabase/migrations/202611190001_initial_schema.sql`
 2. `supabase/migrations/202611190002_security_hardening.sql`
 3. `supabase/migrations/202611190003_realtime_and_membership_rpcs.sql`
+4. `supabase/migrations/202611200001_owner_role_permissions.sql`
 
-فقط migration سوم را اجرا کنید؛ دو فایل نخست را مجدداً اجرا نکنید. بعد از اجرا، وضعیت جدول‌های Realtime و توابع RPC را بررسی کنید.
+اگر سه migration قبلی را اجرا کرده‌اید، فقط migration چهارم را اجرا کنید؛ فایل‌های قبلی را مجدداً اجرا نکنید. migration چهارم جدول تنظیم دسترسی نقش‌ها و کنترل مجوزها در سطح دیتابیس را اضافه می‌کند.
 
 ## CI و APK
 

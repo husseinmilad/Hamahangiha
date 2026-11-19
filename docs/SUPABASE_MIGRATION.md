@@ -44,7 +44,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 
 ### SQL migrations
 
-دو migration نخست قبلاً توسط مالک پروژه اجرا شده‌اند. migration سوم هنوز باید در SQL Editor اجرا شود:
+سه migration نخست قبلاً توسط مالک پروژه اجرا شده‌اند. migration چهارم باید در SQL Editor اجرا شود:
 
 1. `supabase/migrations/202611190001_initial_schema.sql`
 2. `supabase/migrations/202611190002_security_hardening.sql`

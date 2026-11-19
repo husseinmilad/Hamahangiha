@@ -286,7 +286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (error) throw error;
   }), [withAuth]);
   const signUpWithEmail = useCallback((email: string, password: string, displayName: string) => withAuth(async () => {
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(), password,
       options: { data: { display_name: displayName.trim() || email.split('@')[0] } },
     });

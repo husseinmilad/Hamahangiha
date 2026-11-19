@@ -124,7 +124,7 @@ function itemPayload(workspace: Workspace, user: AppUser, input: SaveItemInput) 
     notify_members: input.notifyMembers,
     reminder_minutes: Math.max(0, Math.min(1440, Math.round(input.reminderMinutes))),
     updated_at: new Date().toISOString(),
-    ...(!undefined && {}),
+
   };
 }
 async function insertNotification(args: {
@@ -153,7 +153,8 @@ export async function saveWorkspaceItem(
   const name = clampStr(currentUser.displayName || email.split('@')[0], SCHEMA_LIMITS.NAME_MAX);
   const payload = itemPayload(workspace, currentUser, input);
   if (existingItem) {
-    const { error } = await supabase.from('workspace_items').update(payload).eq('id', id).eq('workspace_id', workspace.id);
+    const { workspace_id: _workspaceId, ...updatePayload } = payload;
+    const { error } = await supabase.from('workspace_items').update(updatePayload).eq('id', id).eq('workspace_id', workspace.id);
     throwIfError(error);
   } else {
     const { error } = await supabase.from('workspace_items').insert({

@@ -311,8 +311,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const enableDeviceNotifications = useCallback(async () => {
     const permission = await requestNotificationPermission();
     setNotifPermission(permission);
+    if (permission === 'granted' && isNativePlatform() && memberships.length > 0) {
+      const { data, error } = await supabase.from('workspace_items').select('*').in('workspace_id', memberships.map(m => m.workspaceId));
+      if (error) console.error('Could not refresh local reminders after permission grant', error);
+      else await scheduleNativeReminders((data || []).map(mapItem));
+    }
     return permission;
-  }, []);
+  }, [memberships]);
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length + incomingInvites.length, [notifications, incomingInvites]);
   const value: AppContextValue = {
     user, authReady, authLoading, authError, profile, memberships, activeWorkspaceId,

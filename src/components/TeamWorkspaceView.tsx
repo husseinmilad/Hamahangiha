@@ -17,7 +17,7 @@ import {
   createWorkspace,
   declineWorkspaceInvite,
   getRoleDisplayLabel,
-  inviteMemberByGmail,
+  inviteMemberByEmail,
   removeWorkspaceMember,
   updateMemberRole,
 } from '../services/firestoreService';
@@ -62,7 +62,7 @@ export const TeamWorkspaceView: React.FC = () => {
     if (!activeWorkspace) return;
     const cleanEmail = inviteEmail.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      setInviteError('لطفاً یک آدرس ایمیل (جیمیل) معتبر وارد کنید.');
+      setInviteError('لطفاً یک آدرس ایمیل (ایمیل) معتبر وارد کنید.');
       return;
     }
     if (members.some((m) => m.email.toLowerCase() === cleanEmail)) {
@@ -75,9 +75,9 @@ export const TeamWorkspaceView: React.FC = () => {
     setInviteSuccess(null);
 
     try {
-      await inviteMemberByGmail(activeWorkspace, user, cleanEmail, inviteRole);
+      await inviteMemberByEmail(activeWorkspace, user, cleanEmail, inviteRole);
       setInviteSuccess(
-        `دعوت‌نامه برای «${cleanEmail}» ثبت شد. به محض ورود همکارتان با این جیمیل، گروه «${activeWorkspace.name}» و اعلان‌های آن فعال می‌شود.`
+        `دعوت‌نامه برای «${cleanEmail}» ثبت شد. به محض ورود همکارتان با این ایمیل، گروه «${activeWorkspace.name}» و اعلان‌های آن فعال می‌شود.`
       );
       setInviteEmail('');
     } catch (err) {
@@ -104,7 +104,7 @@ export const TeamWorkspaceView: React.FC = () => {
 
   const handleCopyInviteText = async (invId: string, wsName: string, email: string) => {
     const shareUrl = window.location.origin;
-    const text = `سلام! شما به گروه کاری «${wsName}» در اپلیکیشن هماهنگی دعوت شدید.\nلطفاً با جیمیل (${email}) وارد لینک زیر شوید:\n${shareUrl}`;
+    const text = `سلام! شما به گروه کاری «${wsName}» در اپلیکیشن هماهنگی دعوت شدید.\nلطفاً با ایمیل (${email}) وارد لینک زیر شوید:\n${shareUrl}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopiedInviteId(invId);
@@ -123,10 +123,10 @@ export const TeamWorkspaceView: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-            گروه کاری و اتصال با جیمیل
+            گروه کاری و اتصال با ایمیل
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            همکاران خود (رییس، مسئول دفتر یا اعضای تیم) را با جیمیل به یکدیگر متصل کنید
+            همکاران خود (رییس، مسئول دفتر یا اعضای تیم) را با ایمیل به یکدیگر متصل کنید
           </p>
         </div>
 
@@ -255,7 +255,7 @@ export const TeamWorkspaceView: React.FC = () => {
 
       {activeWorkspace && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Invite by Gmail Form */}
+          {/* Invite by Email Form */}
           <div className="lg:col-span-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -263,10 +263,10 @@ export const TeamWorkspaceView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  اتصال همکار جدید با جیمیل
+                  اتصال همکار جدید با ایمیل
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  جیمیل رییس یا مسئول دفتر را وارد کنید
+                  ایمیل رییس یا مسئول دفتر را وارد کنید
                 </p>
               </div>
             </div>
@@ -286,7 +286,7 @@ export const TeamWorkspaceView: React.FC = () => {
             <form onSubmit={handleInvite} className="space-y-3.5">
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  آدرس جیمیل همکار *
+                  آدرس ایمیل همکار *
                 </label>
                 <input
                   type="email"
@@ -295,7 +295,7 @@ export const TeamWorkspaceView: React.FC = () => {
                   maxLength={SCHEMA_LIMITS.EMAIL_MAX}
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="colleague@gmail.com"
+                  placeholder="colleague@email.com"
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600 min-h-[44px]"
                 />
               </div>
@@ -323,7 +323,7 @@ export const TeamWorkspaceView: React.FC = () => {
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-3 px-4 text-xs font-bold transition-colors min-h-[46px]"
               >
                 {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                ارسال دعوت‌نامه جیمیل
+                ارسال دعوت‌نامه ایمیل
               </button>
             </form>
           </div>
@@ -421,7 +421,7 @@ export const TeamWorkspaceView: React.FC = () => {
                           {inv.invitedEmail}
                         </p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          نقش: {getRoleDisplayLabel(inv.role)} · در انتظار ورود با جیمیل
+                          نقش: {getRoleDisplayLabel(inv.role)} · در انتظار ورود با ایمیل
                         </p>
                       </div>
 

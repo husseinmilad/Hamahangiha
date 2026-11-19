@@ -291,7 +291,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       options: { data: { display_name: displayName.trim() || email.split('@')[0] } },
     });
     if (error) throw error;
-    if (!data.session) setAuthError('ثبت‌نام انجام شد. اگر تأیید ایمیل فعال است، لینک ارسال‌شده را باز کنید و سپس وارد شوید.');
   }), [withAuth]);
   const resetPassword = useCallback((email: string) => withAuth(async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {

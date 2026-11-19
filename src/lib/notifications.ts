@@ -55,7 +55,7 @@ export async function scheduleNativeReminders(items: WorkspaceItem[]): Promise<v
       sound: 'default', vibration: true,
     });
     const pending = await LocalNotifications.getPending();
-    const owned = pending.notifications.filter(n => typeof n.id === 'number');
+    const owned = pending.notifications.filter(n => (n.extra as { source?: string } | undefined)?.source === 'hamahangi-reminder');
     if (owned.length) await LocalNotifications.cancel({ notifications: owned.map(n => ({ id: n.id })) });
     const now = Date.now();
     const notifications = items
@@ -74,7 +74,7 @@ export async function scheduleNativeReminders(items: WorkspaceItem[]): Promise<v
         body: `تا ${item.reminderMinutes} دقیقه دیگر · ساعت ${item.startTime}`,
         schedule: { at },
         channelId: 'hamahangi_notifications',
-        extra: { itemId: item.id, workspaceId: item.workspaceId },
+        extra: { source: 'hamahangi-reminder', itemId: item.id, workspaceId: item.workspaceId },
       }));
     if (notifications.length) await LocalNotifications.schedule({ notifications });
   } catch (error) {

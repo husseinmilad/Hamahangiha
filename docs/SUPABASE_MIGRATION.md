@@ -15,14 +15,15 @@ This branch starts the migration from Firebase to Supabase Cloud. It is intentio
 1. [x] Create an isolated migration branch.
 2. [x] Add initial PostgreSQL schema and RLS migration.
 3. [x] Add follow-up RLS hardening migration (must be applied after the initial schema).
-4. [ ] Configure email/password auth in the Supabase Cloud project.
-5. [ ] Add Supabase JS client and environment variables.
-6. [ ] Replace the Firebase auth UI with email/password sign-up, sign-in and password recovery.
-7. [ ] Replace Firestore listeners and CRUD operations with Postgres queries/realtime.
-8. [ ] Port invitations and workspace membership to secure RPCs / RLS.
-9. [ ] Remove Firebase packages, configuration, rules, functions and messaging worker after parity tests.
-10. [ ] Test web and Android builds; test RLS with multiple users and roles.
-11. [ ] Plan and verify data migration before switching any existing users.
+4. [x] Apply both SQL migrations in the Supabase Cloud project (confirmed by project owner).
+5. [ ] Configure email/password auth in the Supabase Cloud project.
+6. [ ] Add Supabase JS client and environment variables.
+7. [ ] Replace the Firebase auth UI with email/password sign-up, sign-in and password recovery.
+8. [ ] Replace Firestore listeners and CRUD operations with Postgres queries/realtime.
+9. [ ] Port invitations and workspace membership to secure RPCs / RLS.
+10. [ ] Remove Firebase packages, configuration, rules, functions and messaging worker after parity tests.
+11. [ ] Test web and Android builds; test RLS with multiple users and roles.
+12. [ ] Plan and verify data migration before switching any existing users.
 
 ## Supabase project setup
 

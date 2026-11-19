@@ -4,10 +4,10 @@ import { useApp } from '../context/AppContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import welcomeDeskImage from '../assets/images/hamahangi_welcome_desk_1794938541772.jpg';
 
-type Mode = 'signin' | 'signup' | 'reset';
+type Mode = 'signin' | 'signup' | 'reset' | 'update';
 export const LoginScreen: React.FC = () => {
-  const { signInWithEmail, signUpWithEmail, resetPassword, authLoading, authError } = useApp();
-  const [mode, setMode] = useState<Mode>('signin');
+  const { signInWithEmail, signUpWithEmail, resetPassword, updatePassword, passwordRecovery, authLoading, authError } = useApp();
+  const [mode, setMode] = useState<Mode>(() => passwordRecovery || (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) ? 'update' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -21,6 +21,7 @@ export const LoginScreen: React.FC = () => {
     if (mode !== 'reset' && password.length < 6) { setError('رمز عبور باید حداقل ۶ نویسه باشد.'); return; }
     try {
       if (mode === 'signin') await signInWithEmail(email, password);
+      else if (mode === 'update') { await updatePassword(password); setMessage('رمز عبور با موفقیت تغییر کرد.'); }
       else if (mode === 'signup') {
         await signUpWithEmail(email, password, displayName);
         setMessage('درخواست ثبت‌نام ارسال شد. اگر تأیید ایمیل فعال است، صندوق ورودی و پوشه هرزنامه را بررسی کنید.');
@@ -30,7 +31,7 @@ export const LoginScreen: React.FC = () => {
       }
     } catch (e) { setError(e instanceof Error ? e.message : 'عملیات انجام نشد. دوباره تلاش کنید.'); }
   };
-  const title = mode === 'signin' ? 'ورود به هماهنگی' : mode === 'signup' ? 'ساخت حساب کاربری' : 'بازیابی رمز عبور';
+  const title = mode === 'signin' ? 'ورود به هماهنگی' : mode === 'signup' ? 'ساخت حساب کاربری' : mode === 'update' ? 'تعیین رمز عبور جدید' : 'بازیابی رمز عبور';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
@@ -63,12 +64,12 @@ export const LoginScreen: React.FC = () => {
             {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 p-3 text-xs text-emerald-700 dark:text-emerald-300">{message}</p>}
             <button type="submit" disabled={authLoading} className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-3 text-sm font-bold">
               {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {mode === 'signin' ? 'ورود' : mode === 'signup' ? 'ثبت‌نام' : 'ارسال لینک بازیابی'}
+              {mode === 'signin' ? 'ورود' : mode === 'signup' ? 'ثبت‌نام' : mode === 'update' ? 'ذخیره رمز جدید' : 'ارسال لینک بازیابی'}
             </button>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               {mode === 'signin' && <button type="button" onClick={()=>{setMode('reset');setError('');setMessage('');}} className="text-blue-600 hover:underline">رمز عبور را فراموش کرده‌ام</button>}
               {mode !== 'signin' && <button type="button" onClick={()=>{setMode('signin');setError('');setMessage('');}} className="text-blue-600 hover:underline">بازگشت به ورود</button>}
-              {mode !== 'signup' && <button type="button" onClick={()=>{setMode('signup');setError('');setMessage('');}} className="text-blue-600 hover:underline">ایجاد حساب جدید</button>}
+              {mode !== 'signup' && mode !== 'update' && <button type="button" onClick={()=>{setMode('signup');setError('');setMessage('');}} className="text-blue-600 hover:underline">ایجاد حساب جدید</button>}
               {mode === 'signup' && <button type="button" onClick={()=>{setMode('signin');setError('');setMessage('');}} className="text-blue-600 hover:underline">قبلاً حساب ساخته‌ام</button>}
             </div>
           </form>

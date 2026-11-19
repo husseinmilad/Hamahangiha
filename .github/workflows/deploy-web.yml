@@ -34,6 +34,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Build web app
         run: npm run build
+      # The repository Pages source is already set to GitHub Actions; configure-pages is intentionally omitted.
       - name: Upload web build
         uses: actions/upload-pages-artifact@v3
         with:

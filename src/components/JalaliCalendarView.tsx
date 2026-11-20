@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import {
   CalendarDays,
   CalendarOff,
@@ -119,15 +122,61 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
     setTimeout(() => setActionFeedback(null), 3500);
   };
 
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('خواندن فایل تصویر ناموفق بود.'));
+      reader.onloadend = () => {
+        const result = reader.result;
+        if (typeof result !== 'string') return reject(new Error('تبدیل تصویر ناموفق بود.'));
+        resolve(result.split(',')[1] || '');
+      };
+      reader.readAsDataURL(blob);
+    });
+
+  const saveOrShareNativeImage = async (blob: Blob, filename: string, share: boolean, summaryText?: string) => {
+    const base64 = await blobToBase64(blob);
+    const saved = await Filesystem.writeFile({
+      path: filename,
+      data: base64,
+      directory: Directory.Cache,
+      recursive: true,
+    });
+    if (share) {
+      await Share.share({
+        title: `برنامه هفتگی ${activeWorkspace?.name ?? ''}`,
+        text: summaryText,
+        files: [saved.uri],
+        dialogTitle: 'اشتراک‌گذاری تصویر برنامه هفتگی',
+      });
+    } else {
+      const documentsCopy = await Filesystem.writeFile({
+        path: `Hamahangiha/${filename}`,
+        data: base64,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      showFeedback('تصویر در پوشه Documents/Hamahangiha ذخیره شد.');
+      // Open the native share sheet as a convenient way to send or save another copy.
+      await Share.share({
+        title: 'تصویر برنامه هفتگی',
+        files: [documentsCopy.uri],
+        dialogTitle: 'ارسال یا ذخیره تصویر برنامه هفتگی',
+      });
+    }
+  };
+
   const triggerBlobDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // Keep the object URL alive longer for Android WebView download handling.
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const handleDownloadWeeklyPng = async () => {
@@ -136,8 +185,12 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
     try {
       const blob = await renderWeeklySchedulePng(activeWorkspace.name, weekDays, items);
       const filename = `hamahangi-week-${weekDays[0].jalaliDate.replace(/\//g, '-')}.png`;
-      triggerBlobDownload(blob, filename);
-      showFeedback('تصویر برنامه هفتگی با کیفیت بالا ذخیره شد.');
+      if (Capacitor.isNativePlatform()) {
+        await saveOrShareNativeImage(blob, filename, false);
+      } else {
+        triggerBlobDownload(blob, filename);
+        showFeedback('تصویر برنامه هفتگی با کیفیت بالا ذخیره شد.');
+      }
     } catch {
       showFeedback('خطا در تولید تصویر برنامه هفتگی.');
     } finally {
@@ -151,27 +204,30 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
     try {
       const blob = await renderWeeklySchedulePng(activeWorkspace.name, weekDays, items);
       const filename = `hamahangi-week-${weekDays[0].jalaliDate.replace(/\//g, '-')}.png`;
-      const file = new File([blob], filename, { type: 'image/png' });
       const summaryText = buildWeeklyTextSummary(activeWorkspace.name, weekDays, items);
 
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: `برنامه هفتگی ${activeWorkspace.name}`,
-          text: summaryText,
-          files: [file],
-        });
-        showFeedback('برنامه هفتگی به اشتراک گذاشته شد.');
-      } else if (navigator.share) {
-        await navigator.share({
-          title: `برنامه هفتگی ${activeWorkspace.name}`,
-          text: summaryText,
-        });
-        triggerBlobDownload(blob, filename);
-        showFeedback('متن اشتراک‌گذاری شد و تصویر نیز ذخیره گردید.');
+      if (Capacitor.isNativePlatform()) {
+        await saveOrShareNativeImage(blob, filename, true, summaryText);
+        showFeedback('تصویر برنامه هفتگی برای اشتراک‌گذاری آماده شد.');
       } else {
-        await navigator.clipboard?.writeText(summaryText).catch(() => {});
-        triggerBlobDownload(blob, filename);
-        showFeedback('تصویر برنامه ذخیره و متن خلاصه در حافظه کپی شد.');
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `برنامه هفتگی ${activeWorkspace.name}`,
+            text: summaryText,
+            files: [file],
+          });
+          showFeedback('برنامه هفتگی به اشتراک گذاشته شد.');
+        } else {
+          triggerBlobDownload(blob, filename);
+          if (navigator.share) {
+            await navigator.share({ title: `برنامه هفتگی ${activeWorkspace.name}`, text: summaryText });
+            showFeedback('متن و تصویر برنامه آماده شدند؛ تصویر دانلود شد.');
+          } else {
+            await navigator.clipboard?.writeText(summaryText).catch(() => {});
+            showFeedback('تصویر دانلود و متن خلاصه کپی شد.');
+          }
+        }
       }
     } catch (err) {
       // Ignore user cancelling native share sheet

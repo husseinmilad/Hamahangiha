@@ -50,6 +50,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 2. `supabase/migrations/202611190002_security_hardening.sql`
 3. `supabase/migrations/202611190003_realtime_and_membership_rpcs.sql`
 4. `supabase/migrations/202611200001_owner_role_permissions.sql`
+5. `supabase/migrations/202611200002_workspace_role_permissions_schema_cache_repair.sql`
 
 اگر سه migration قبلی را اجرا کرده‌اید، فقط migration چهارم را اجرا کنید؛ فایل‌های قبلی را مجدداً اجرا نکنید. migration چهارم جدول تنظیم دسترسی نقش‌ها و کنترل مجوزها در سطح دیتابیس را اضافه می‌کند.
 
@@ -66,3 +67,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 - Push notification از راه دور در این مرحله پیاده‌سازی نشده است. اعلان‌های جدید هنگام آنلاین بودن برنامه از طریق Realtime دریافت می‌شوند؛ یادآوری‌های زمان‌بندی‌شده روی دستگاه محلی‌اند.
 - برای دریافت تغییرات لحظه‌ای در حالت بسته بودن اپ، سرویس Push مستقل لازم است و فعلاً خارج از محدوده است.
 - تا قبل از تست چندحسابی و بررسی سیاست‌ها، از داده حساس یا سازمانی واقعی استفاده نشود.
+
+
+### رفع خطای نبودن جدول دسترسی نقش‌ها
+
+اگر برنامه خطای `Could not find the table 'public.workspace_role_permissions' in the schema cache` نشان می‌دهد، فایل پنجم را در SQL Editor پروژه Supabase اجرا کنید. این migration به‌صورت امن جدول را در صورت نبودن ایجاد می‌کند، تابع بررسی دسترسی را برقرار می‌کند و از طریق `NOTIFY pgrst, 'reload schema'` کش PostgREST را تازه‌سازی می‌کند. پس از اجرای موفق، برنامه را یک‌بار ببندید و دوباره باز کنید.

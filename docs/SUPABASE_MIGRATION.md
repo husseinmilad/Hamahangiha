@@ -44,7 +44,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 
 ### SQL migrations
 
-سه migration نخست قبلاً توسط مالک پروژه اجرا شده‌اند. migration چهارم باید در SQL Editor اجرا شود:
+سه migration نخست قبلاً توسط مالک پروژه اجرا شده‌اند. migration چهارم و سپس پنجم باید در SQL Editor اجرا شوند:
 
 1. `supabase/migrations/202611190001_initial_schema.sql`
 2. `supabase/migrations/202611190002_security_hardening.sql`
@@ -71,4 +71,4 @@ VITE_SUPABASE_PUBLISHABLE_KEY=کلید-publishable-پروژه
 
 ### رفع خطای نبودن جدول دسترسی نقش‌ها
 
-اگر برنامه خطای `Could not find the table 'public.workspace_role_permissions' in the schema cache` نشان می‌دهد، فایل پنجم را در SQL Editor پروژه Supabase اجرا کنید. این migration به‌صورت امن جدول را در صورت نبودن ایجاد می‌کند، تابع بررسی دسترسی را برقرار می‌کند و از طریق `NOTIFY pgrst, 'reload schema'` کش PostgREST را تازه‌سازی می‌کند. پس از اجرای موفق، برنامه را یک‌بار ببندید و دوباره باز کنید.
+اگر برنامه خطای `Could not find the table 'public.workspace_role_permissions' in the schema cache` نشان می‌دهد، فایل چهارم و سپس فایل پنجم را در SQL Editor پروژه Supabase اجرا کنید. این migration به‌صورت امن جدول را در صورت نبودن ایجاد می‌کند، تابع بررسی دسترسی را برقرار می‌کند و از طریق `NOTIFY pgrst, 'reload schema'` کش PostgREST را تازه‌سازی می‌کند. پس از اجرای موفق، برنامه را یک‌بار ببندید و دوباره باز کنید.

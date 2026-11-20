@@ -64,6 +64,52 @@ jobs:
                   content = content.replace("<application", permission + "\\n    <application", 1)
           path.write_text(content)
           PY
+      - name: Configure Android system bars and safe content area
+        if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          java_files = list(Path("android/app/src/main/java").rglob("MainActivity.java"))
+          if not java_files:
+              raise SystemExit("MainActivity.java was not generated")
+          main = java_files[0]
+          source = main.read_text()
+          if "WindowCompat.setDecorFitsSystemWindows" not in source:
+              source = source.replace(
+                  "import com.getcapacitor.BridgeActivity;",
+                  "import com.getcapacitor.BridgeActivity;\n"
+                  "import android.os.Bundle;\n"
+                  "import android.graphics.Color;\n"
+                  "import android.view.View;\n"
+                  "import androidx.core.view.WindowCompat;"
+              )
+              source = source.replace(
+                  "public class MainActivity extends BridgeActivity {",
+                  "public class MainActivity extends BridgeActivity {\n"
+                  "    @Override\n"
+                  "    public void onCreate(Bundle savedInstanceState) {\n"
+                  "        super.onCreate(savedInstanceState);\n"
+                  "        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);\n"
+                  "        getWindow().setStatusBarColor(Color.rgb(248, 250, 252));\n"
+                  "        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);\n"
+                  "    }"
+              )
+              main.write_text(source)
+
+          # Android 15+ otherwise forces edge-to-edge for target SDK 35.
+          for styles in Path("android/app/src/main/res").glob("values*/styles.xml"):
+              content = styles.read_text()
+              if "windowOptOutEdgeToEdgeEnforcement" in content:
+                  continue
+              match = re.search(r'(<style[^>]*name="AppTheme(?:\.NoActionBar)?"[^>]*>)(.*?)(</style>)', content, re.S)
+              if match:
+                  content = content[:match.start(2)] + match.group(2) + (
+                      '\n        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>'
+                  ) + content[match.end(2):]
+                  styles.write_text(content)
+          PY
       - name: Build debug APK
         if: env.VITE_SUPABASE_PUBLISHABLE_KEY != ''
         working-directory: android

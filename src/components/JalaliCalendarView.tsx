@@ -157,12 +157,6 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
         recursive: true,
       });
       showFeedback('تصویر در پوشه Documents/Hamahangiha ذخیره شد.');
-      // Open the native share sheet as a convenient way to send or save another copy.
-      await Share.share({
-        title: 'تصویر برنامه هفتگی',
-        files: [documentsCopy.uri],
-        dialogTitle: 'ارسال یا ذخیره تصویر برنامه هفتگی',
-      });
     }
   };
 

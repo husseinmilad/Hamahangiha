@@ -150,7 +150,7 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
         dialogTitle: 'اشتراک‌گذاری تصویر برنامه هفتگی',
       });
     } else {
-      const documentsCopy = await Filesystem.writeFile({
+      await Filesystem.writeFile({
         path: `Hamahangiha/${filename}`,
         data: base64,
         directory: Directory.Documents,
